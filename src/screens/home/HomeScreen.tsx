@@ -21,7 +21,7 @@ import {
   Alert,
 } from 'react-native';
 import { theme } from '../../styles/theme';
-import { SearchCard } from '../../components/searchCard';
+import { SearchCard } from '../../components/SearchCard';
 import { StatsBar } from '../../components/StatsBar';
 import {
   MOCK_USER,
