@@ -11,6 +11,7 @@
   "dependencies": {
     "@expo-google-fonts/sora": "^0.4.2",
     "@react-native-async-storage/async-storage": "^3.0.2",
+    "@react-navigation/native": "^7.2.2",
     "@react-navigation/native-stack": "^7.14.12",
     "@tanstack/react-query": "^5.100.9",
     "expo": "~54.0.33",

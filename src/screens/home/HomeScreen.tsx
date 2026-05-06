@@ -23,6 +23,7 @@ import {
 import { theme } from '../../styles/theme';
 import { SearchCard } from '../../components/SearchCard';
 import { StatsBar } from '../../components/StatsBar';
+import { useNavigation } from '@react-navigation/native';
 import {
   MOCK_USER,
   MOCK_RECENT_SEARCHES,
@@ -124,7 +125,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         {/* CTA – Nova pesquisa */}
         <TouchableOpacity
           style={styles.newSearchBtn}
-          onPress={handleNewSearch}
+          onPress={() => navigation.navigate('Search')}
           activeOpacity={0.85}
         >
           <Text style={styles.newSearchPlus}>+</Text>
