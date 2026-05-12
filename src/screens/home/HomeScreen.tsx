@@ -24,6 +24,7 @@ import { theme } from '../../styles/theme';
 import { SearchCard } from '../../components/SearchCard';
 import { StatsBar } from '../../components/StatsBar';
 import { useNavigation } from '@react-navigation/native';
+import { Image, ImageSourcePropType, ImageStyle } from 'react-native';
 import {
   MOCK_USER,
   MOCK_RECENT_SEARCHES,
@@ -92,26 +93,29 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       />
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerGreeting}>
-            Olá, {MOCK_USER.name.split(' ')[0]} 👋
-          </Text>
-          <Text style={styles.headerLogo}>
-            Spectrum
-            <Text style={styles.headerLogoAccent}> AI</Text>
-          </Text>
-        </View>
+<View style={styles.header}>
+  <View>
+    <Text style={styles.headerGreeting}>
+      Olá, {MOCK_USER.name.split(' ')[0]} 👋
+    </Text>
+  </View>
 
-        {/* Avatar */}
-        <TouchableOpacity
-          style={styles.avatar}
-          onPress={() => handleNavPress('profile')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.avatarText}>{MOCK_USER.initials}</Text>
-        </TouchableOpacity>
-      </View>
+    {/* Avatar */}
+    <TouchableOpacity
+      style={styles.avatar}
+      onPress={() => handleNavPress('profile')}
+      activeOpacity={0.8}
+    >
+    <Text style={styles.avatarText}>{MOCK_USER.initials}</Text>
+  </TouchableOpacity>
+</View>
+    <View style={styles.logoContainer}>
+      <Image
+        source={require('../../../assets/spectrum-logo.png')}
+        style={styles.logoImage}
+        resizeMode="contain"
+      />
+    </View>
 
       {/* ── CORPO PRINCIPAL ─────────────────────────────────────────── */}
       <ScrollView
@@ -255,10 +259,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? 8 : 4,
-    paddingBottom: 16,
+    paddingBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   headerGreeting: {
     fontSize: 12,
@@ -274,6 +278,17 @@ const styles = StyleSheet.create({
   },
   headerLogoAccent: {
     color: theme.colors.secondary,
+  },
+  // Adicionar junto aos outros styles do Header
+  logoContainer: {
+    width: '100%',         // largura fixa do container
+    height: 30,         // altura fixa — controla o espaço vertical
+    justifyContent: 'center',
+    paddingBottom: 8
+  },
+  logoImage: {
+    width: '100%',      // preenche o container
+    height: '100%',     // preenche o container
   },
   avatar: {
     width: 38,

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { theme } from '../../styles/theme';
+import { Image, ImageSourcePropType, ImageStyle } from 'react-native';
 
 export const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('ana.silva@ford.com.br');
@@ -17,9 +18,21 @@ export const LoginScreen = ({ navigation }: any) => {
       {/* Header Azul */}
       <View style={styles.header}>
         <View style={styles.logoIcon}>
-          <Text style={{ fontSize: 24 }}>⚡</Text>
+          <Image
+            source={require('../../../assets/spectrum-logo-icone.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
-        <Text style={styles.logoText}>Spectrum<Text style={{ color: theme.colors.secondary }}> AI</Text></Text>
+
+        <View style={styles.logoTextContainer}>
+          <Image
+            source={require('../../../assets/spectrum-logo-texto.png')}
+            style={styles.logoTextImage}
+            resizeMode="contain"
+          />
+        </View>
+
         <Text style={styles.subTitle}>Análise competitiva automotiva</Text>
       </View>
 
@@ -66,16 +79,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 40,
   },
-  logoIcon: {
+   logoIcon: {
     width: 60,
     height: 60,
-    backgroundColor: 'rgba(131,192,255,0.2)',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  logoText: { color: '#fff', fontSize: 28, fontWeight: '700' },
+  logoImage: {
+    width: 50,
+    height: 50,        // fixo, pois o container já tem tamanho definido
+    resizeMode: 'contain',
+  },
+
+  logoTextContainer: {
+    width: '60%',      // ocupa 60% da tela
+    height: 40,        // altura fixa — a largura que varia
+    marginBottom: 8,
+  },
+  logoTextImage: {
+    width: '100%',     // preenche o container pai
+    height: '100%',    // preenche o container pai
+  },
   subTitle: { color: theme.colors.secondary, opacity: 0.8, fontSize: 12 },
   formCard: {
     flex: 1,
