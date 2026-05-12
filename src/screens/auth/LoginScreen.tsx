@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Image, ImageSourcePropType, ImageStyle } from 'react-native';
+import {styles} from '../../styles/login.styles'
 
 export const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('ana.silva@ford.com.br');
@@ -70,69 +71,3 @@ export const LoginScreen = ({ navigation }: any) => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.primary },
-  header: {
-    height: '40%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 40,
-  },
-   logoIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  logoImage: {
-    width: 50,
-    height: 50,        // fixo, pois o container já tem tamanho definido
-    resizeMode: 'contain',
-  },
-
-  logoTextContainer: {
-    width: '60%',      // ocupa 60% da tela
-    height: 40,        // altura fixa — a largura que varia
-    marginBottom: 8,
-  },
-  logoTextImage: {
-    width: '100%',     // preenche o container pai
-    height: '100%',    // preenche o container pai
-  },
-  subTitle: { color: theme.colors.secondary, opacity: 0.8, fontSize: 12 },
-  formCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  formTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20 },
-  inputGroup: { marginBottom: 16 },
-  label: { fontSize: 10, fontWeight: '700', color: theme.colors.textLight, marginBottom: 6 },
-  input: {
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-  },
-  button: {
-    backgroundColor: theme.colors.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  forgotPassword: {
-    color: theme.colors.primary,
-    textAlign: 'center',
-    marginTop: 16,
-    fontWeight: '600',
-    fontSize: 12,
-  }
-});

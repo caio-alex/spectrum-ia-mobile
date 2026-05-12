@@ -4,7 +4,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../styles/theme';
 import type { SourceTag } from '../mocks/homeData';
-
+import { styles } from '../styles/sourceBadge.styles';
 interface Props {
   tag: SourceTag;
   small?: boolean;
@@ -27,23 +27,3 @@ export const SourceBadge: React.FC<Props> = ({ tag, small = false }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  text: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  small: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  smallText: {
-    fontSize: 8.5,
-  },
-});
