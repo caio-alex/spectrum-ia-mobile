@@ -12,7 +12,7 @@ import {
 import { theme } from '../../styles/theme';
 import { SpecTable } from '../../components/SpecTable';
 import { StatsBar } from '../../components/StatsBar'; // Componente que você já possui
-import { styles } from '../../styles/ResultScreen.styles';
+import { styles } from '../../styles/resultScreen.styles';
 export const ResultScreen = ({ navigation, route }: any) => {
   const params = route?.params ?? {
     brand: 'Toyota',
@@ -92,9 +92,12 @@ export const ResultScreen = ({ navigation, route }: any) => {
 
           <TouchableOpacity 
             style={styles.compareFab}
-            onPress={() => navigation.navigate('CompareSelector')}
+            onPress={() => navigation.navigate('Compare', {
+              vehicleIds: ['corolla_cross_xre_2024'] 
+              // Em produção: passar o ID real do veículo analisado
+            })}
           >
-            <Text style={styles.compareFabText}>Comparar este veículo</Text>
+            <Text style={styles.compareFabText}>⚖️ Comparar este veículo</Text>
           </TouchableOpacity>
         </ScrollView>
       </Animated.View>

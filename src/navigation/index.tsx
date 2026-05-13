@@ -7,6 +7,8 @@ import { CategoriesScreen } from '../screens/search/CategoriesScreen';
 import { ProcessingScreen } from '../screens/search/ProcessingScreen';
 import { ResultScreen } from '../screens/result/ResultScreen';
 import { FieldDetailScreen } from '../screens/result/FieldDetailScreen';
+import { CompareScreen } from '../screens/compare/CompareScreen';
+
 const Stack = createNativeStackNavigator();
 
 export const RootNavigation = () => {
@@ -22,6 +24,7 @@ export const RootNavigation = () => {
       <Stack.Screen name="Processing" component={ProcessingScreen} />
       <Stack.Screen name="Result" component={ResultScreen} />
       <Stack.Screen name="FieldDetail" component={FieldDetailScreen} />
+      <Stack.Screen name="Compare" component={CompareScreen} />
       {/* Fluxo principal (MainTabs ou Home) */}
       <Stack.Screen name="MainTabs" component={HomeScreen} />
     </Stack.Navigator>

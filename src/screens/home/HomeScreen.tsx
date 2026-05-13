@@ -67,7 +67,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   }, []);
 
   const handleFABComparator = useCallback(() => {
-    // TODO: navigation.navigate('Comparator')
+    navigation.navigate('Compare')
     Alert.alert('Comparador', 'Tela em construção (Fluxo comparador do mockup).');
   }, []);
 
