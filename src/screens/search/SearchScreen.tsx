@@ -31,6 +31,8 @@ import {
   type VehicleVersion,
 } from '../../mocks/vehicleData';
 import { fieldStyles, progressStyles, styles } from '../../styles/searchScreen.styles';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faLightbulb } from '@fortawesome/free-solid-svg-icons/faLightbulb';
 // ── Props ─────────────────────────────────────────────────────────────────
 interface Props {
   navigation?: any;
@@ -232,7 +234,7 @@ export const SearchScreen: React.FC<Props> = ({ navigation }) => {
             },
           ]}
         >
-          <Text style={styles.tipIcon}>💡</Text>
+          <Text style={styles.tipIcon}><FontAwesomeIcon icon={faLightbulb} style={{color: "rgb(255, 212, 59)",}} /></Text>
           <View style={styles.tipContent}>
             <Text style={styles.tipTitle}>Dica</Text>
             <Text style={styles.tipText}>

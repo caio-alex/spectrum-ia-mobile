@@ -35,19 +35,19 @@ export const SpecTable = ({ category, data }: { category: string, data: SpecItem
           key={index} 
           style={[styles.row, index === data.length - 1 && { borderBottomWidth: 0 }]}
           activeOpacity={0.7}
-          onPress={() => {
-            // 4. Dispara a navegação passando os dados da linha clicada
-            navigation.navigate('FieldDetail', {
-              vehicleName: 'Veículo Selecionado', // Idealmente você passaria isso por prop no SpecTable
-              fieldCategory: category,
-              fieldName: item.label,
-              fieldValue: item.value,
-              confidence: getConfidenceLevel(item.status),
-              sourceName: item.source,
-              sourceUrl: 'https://exemplo.com/fonte', // Mock temporário
-              sourceQuote: 'Trecho extraído do texto original pela IA para embasar este dado.' // Mock temporário
-            });
-          }}
+          // onPress={() => {
+          //   // 4. Dispara a navegação passando os dados da linha clicada
+          //   navigation.navigate('FieldDetail', {
+          //     vehicleName: 'Veículo Selecionado', // Idealmente você passaria isso por prop no SpecTable
+          //     fieldCategory: category,
+          //     fieldName: item.label,
+          //     fieldValue: item.value,
+          //     confidence: getConfidenceLevel(item.status),
+          //     sourceName: item.source,
+          //     sourceUrl: 'https://exemplo.com/fonte', // Mock temporário
+          //     sourceQuote: 'Trecho extraído do texto original pela IA para embasar este dado.' // Mock temporário
+          //   });
+          // }}
         >
           <View style={styles.labelCol}>
             <Text style={styles.label}>{item.label}</Text>

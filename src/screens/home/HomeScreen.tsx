@@ -97,7 +97,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 <View style={styles.header}>
   <View>
     <Text style={styles.headerGreeting}>
-      Olá, {MOCK_USER.name.split(' ')[0]} 👋
+      Olá, {MOCK_USER.name.split(' ')[0]}!
     </Text>
   </View>
 

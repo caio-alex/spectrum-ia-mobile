@@ -23,6 +23,8 @@ import {
 import { theme } from '../../styles/theme';
 import { SearchSource, SEARCH_SOURCES } from '../../mocks/vehicleData';
 import { styles } from '../../styles/processingScreen.styles';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons/faMagnifyingGlass';
 // ── Tipos ─────────────────────────────────────────────────────────────────
 type SourceStatus = 'pending' | 'running' | 'done' | 'warning';
 
@@ -248,7 +250,7 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
                 </Animated.View>
                 {/* Círculo interno */}
                 <View style={styles.spinnerInner}>
-                  <Text style={styles.spinnerInnerEmoji}>🔍</Text>
+                  <Text style={styles.spinnerInnerEmoji}><FontAwesomeIcon icon={faMagnifyingGlass} style={{color: "#001881",}} /></Text>
                 </View>
               </View>
             )}
