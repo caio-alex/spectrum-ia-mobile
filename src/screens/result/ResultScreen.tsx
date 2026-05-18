@@ -1,18 +1,17 @@
+// src/screens/result/ResultScreen.tsx
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Animated,
   StatusBar,
-  LayoutAnimation,
   Platform,
   UIManager,
+  LayoutAnimation,
 } from 'react-native';
-import { theme } from '../../styles/theme';
 import { SpecTable } from '../../components/SpecTable';
 import { StatsBar } from '../../components/StatsBar';
 import { styles } from '../../styles/resultScreen.styles';
@@ -22,137 +21,120 @@ import { faBars } from '@fortawesome/free-solid-svg-icons/faBars';
 import { faFilePdf } from '@fortawesome/free-solid-svg-icons/faFilePdf';
 import { sourceStyles } from '../../styles/resultScreen.styles';
 
-// Habilita LayoutAnimation no Android
+import { 
+  CATEGORY_ICONS, 
+  MOCK_BACKEND_RANGER_RESPONSE 
+} from '../../mocks/vehicleData';
+
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// ── Dados mockados das fontes utilizadas ─────────────────────────────────
-const MOCK_SOURCES = [
-  {
-    id: 'src_1',
-    icon: '🏭',
-    name: 'Site Oficial Toyota Brasil',
-    url: 'toyota.com.br/corolla-cross',
-    type: 'Oficial' as const,
-    fieldsFound: 12,
-    excerpt:
-      'Especificações técnicas completas do Corolla Cross XRE 2024, incluindo motorização, dimensões e equipamentos de série.',
-  },
-  {
-    id: 'src_2',
-    icon: '📰',
-    name: 'Quatro Rodas — Test Drive',
-    url: 'quatrorodas.abril.com.br/test-drive/corolla-cross-2024',
-    type: 'Review' as const,
-    fieldsFound: 8,
-    excerpt:
-      '"...no nosso teste cronometrado, o Corolla Cross fez o 0 a 100 em aproximadamente 8,5 segundos com o câmbio CVT bem calibrado..."',
-  },
-  {
-    id: 'src_3',
-    icon: '▶️',
-    name: 'YouTube — iCarros',
-    url: 'youtube.com/watch?v=xK92mZ • 4m32s',
-    type: 'Review' as const,
-    fieldsFound: 6,
-    excerpt:
-      '"...o porta-malas do Corolla Cross surpreende com 487 litros de capacidade, um dos maiores da categoria..."',
-  },
-  {
-    id: 'src_4',
-    icon: '📄',
-    name: 'Press Kit — Toyota Motor',
-    url: 'pressroom.toyota.com.br/2024/corolla-cross',
-    type: 'Estimado' as const,
-    fieldsFound: 4,
-    excerpt:
-      'Documentação técnica oficial para imprensa com dados preliminares do modelo 2024.',
-  },
-];
-
-type SourceType = 'Oficial' | 'Review' | 'Estimado';
-
-const SOURCE_BADGE_CONFIG: Record<SourceType, { bg: string; color: string }> = {
-  Oficial:  { bg: theme.colors.successBg,  color: theme.colors.success  },
-  Review:   { bg: theme.colors.warningBg,  color: theme.colors.warning  },
-  Estimado: { bg: '#edf0fb',               color: theme.colors.primary  },
-};
-
-// ── Componente de fonte expansível ───────────────────────────────────────
-const SourceItem: React.FC<{
-  source: typeof MOCK_SOURCES[0];
-  isLast: boolean;
-}> = ({ source, isLast }) => {
-  const [expanded, setExpanded] = useState(false);
+// ── COMPONENTE HAMBÚRGUER EXPANSÍVEL POR CATEGORIA ──────────────────────
+const ExpandableCategorySection: React.FC<{
+  title: string;
+  data: any[];
+}> = ({ title, data }) => {
+  const [isOpen, setIsOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  const toggle = () => {
+  const toggleSection = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded((prev) => !prev);
+    setIsOpen((prev) => !prev);
     Animated.timing(rotateAnim, {
-      toValue: expanded ? 0 : 1,
+      toValue: isOpen ? 0 : 1,
       duration: 220,
       useNativeDriver: true,
     }).start();
   };
 
-  const badge = SOURCE_BADGE_CONFIG[source.type];
-  const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+  const rotate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
+  const normalizedKey = title.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const icon = CATEGORY_ICONS[normalizedKey] || '📊';
 
   return (
-    <View style={[sourceStyles.item, !isLast && sourceStyles.itemBorder]}>
-      {/* Cabeçalho sempre visível */}
+    <View style={{ marginBottom: 12, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#eef0f7' }}>
       <TouchableOpacity
-        style={sourceStyles.header}
-        onPress={toggle}
-        activeOpacity={0.7}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: 16,
+          backgroundColor: '#f8f9fd',
+        }}
+        onPress={toggleSection}
+        activeOpacity={0.8}
       >
-        <View style={sourceStyles.iconBox}>
-          <Text style={sourceStyles.icon}>{source.icon}</Text>
-        </View>
-
-        <View style={sourceStyles.headerContent}>
-          <View style={sourceStyles.headerRow}>
-            <Text style={sourceStyles.name} numberOfLines={1}>
-              {source.name}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <Text style={{ fontSize: 20, marginRight: 12 }}>{icon}</Text>
+          <View>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#001881', letterSpacing: 0.3 }}>
+              {title.toUpperCase()}
             </Text>
-            <View style={[sourceStyles.badge, { backgroundColor: badge.bg }]}>
-              <Text style={[sourceStyles.badgeText, { color: badge.color }]}>
-                {source.type}
-              </Text>
-            </View>
+            <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+              {data.length} campo{data.length !== 1 ? 's' : ''} encontrado{data.length !== 1 ? 's' : ''}
+            </Text>
           </View>
-          <Text style={sourceStyles.fields}>
-            {source.fieldsFound} campo{source.fieldsFound !== 1 ? 's' : ''} extraído{source.fieldsFound !== 1 ? 's' : ''}
-          </Text>
         </View>
 
-        <Animated.Text style={[sourceStyles.chevron, { transform: [{ rotate }] }]}>
-          ▾
-        </Animated.Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <FontAwesomeIcon icon={faBars} size={14} style={{ color: '#001881', marginRight: 12, opacity: 0.4 }} />
+          <Animated.Text style={{ fontSize: 16, color: '#001881', transform: [{ rotate }] }}>
+            ▾
+          </Animated.Text>
+        </View>
       </TouchableOpacity>
 
-      {/* Conteúdo expandido */}
-      {expanded && (
-        <View style={sourceStyles.expanded}>
-          <Text style={sourceStyles.urlText} numberOfLines={1}>
-            <FontAwesomeIcon icon={faLink} style={{color: "#001881",}} /> {source.url}
-          </Text>
-          <View style={sourceStyles.quoteBox}>
-            <Text style={sourceStyles.quoteText}>{source.excerpt}</Text>
-          </View>
+      {isOpen && (
+        <View style={{ paddingHorizontal: 4, paddingBottom: 8 }}>
+          <SpecTable category="" data={data} />
         </View>
       )}
     </View>
   );
 };
 
-// ── Seção de fontes colapsável ────────────────────────────────────────────
-const SourcesSection: React.FC = () => {
+// ── COMPONENTE DE FONTES UTILIZADAS (DINÂMICO) ───────────────────────────
+const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
   const [open, setOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const totalFields = MOCK_SOURCES.reduce((s, src) => s + src.fieldsFound, 0);
+
+  let oficialCount = 0;
+  let reviewCount = 0;
+  let estimadoCount = 0;
+
+  Object.values(specsData || {}).forEach((category: any) => {
+    Object.values(category || {}).forEach((field: any) => {
+      if (field.source === 'OFFICIAL') oficialCount++;
+      else if (field.source === 'REVIEW') reviewCount++;
+      else if (field.source === 'ESTIMATED') estimadoCount++;
+    });
+  });
+
+  const totalFields = oficialCount + reviewCount + estimadoCount;
+
+  const dynamicSources = [
+    {
+      id: 'src_ford_1',
+      icon: '🏭',
+      name: 'Site e Press Kit Oficial Ford',
+      url: 'ford.com.br/picapes/ranger',
+      type: 'Oficial',
+      fieldsFound: oficialCount,
+    },
+    {
+      id: 'src_ford_2',
+      icon: '📰',
+      name: 'Revistas e Portais Automotivos',
+      url: 'quatrorodas.abril.com.br/ranger-v6',
+      type: 'Review',
+      fieldsFound: reviewCount,
+    },
+  ].filter(src => src.fieldsFound > 0);
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -167,32 +149,32 @@ const SourcesSection: React.FC = () => {
   const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
 
   return (
-    <View style={sourceStyles.section}>
-      {/* Cabeçalho da seção */}
+    <View style={[sourceStyles.section, { marginTop: 8, marginBottom: 12 }]}>
       <TouchableOpacity style={sourceStyles.sectionHeader} onPress={toggle} activeOpacity={0.8}>
         <View style={sourceStyles.sectionLeft}>
-          <Text style={sourceStyles.sectionIcon}><FontAwesomeIcon icon={faBars} style={{color: "#001881",}} /></Text>
+          <Text style={sourceStyles.sectionIcon}><FontAwesomeIcon icon={faBars} style={{ color: "#001881" }} /></Text>
           <View>
             <Text style={sourceStyles.sectionTitle}>Fontes utilizadas</Text>
             <Text style={sourceStyles.sectionSub}>
-              {MOCK_SOURCES.length} fontes · {totalFields} campos extraídos
+              {dynamicSources.length} origens encontradas · {totalFields} mapeamentos
             </Text>
           </View>
         </View>
-        <Animated.Text style={[sourceStyles.chevron, { transform: [{ rotate }] }]}>
-          ▾
-        </Animated.Text>
+        <Animated.Text style={[sourceStyles.chevron, { transform: [{ rotate }] }]}>▾</Animated.Text>
       </TouchableOpacity>
 
-      {/* Lista de fontes */}
       {open && (
         <View style={sourceStyles.list}>
-          {MOCK_SOURCES.map((src, i) => (
-            <SourceItem
-              key={src.id}
-              source={src}
-              isLast={i === MOCK_SOURCES.length - 1}
-            />
+          {dynamicSources.map((src, i) => (
+            <View key={src.id} style={[sourceStyles.item, i !== dynamicSources.length - 1 && sourceStyles.itemBorder, { padding: 12 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, marginRight: 8 }}>{src.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '600', color: '#333' }}>{src.name}</Text>
+                  <Text style={{ fontSize: 11, color: '#888' }}>{src.fieldsFound} dados extraídos · {src.url}</Text>
+                </View>
+              </View>
+            </View>
           ))}
         </View>
       )}
@@ -200,15 +182,10 @@ const SourcesSection: React.FC = () => {
   );
 };
 
-// ── Tela principal ────────────────────────────────────────────────────────
+// ── TELA PRINCIPAL DE RESULTADOS ─────────────────────────────────────────
 export const ResultScreen = ({ navigation, route }: any) => {
-  const params = route?.params ?? {
-    brand: 'Toyota',
-    model: 'Corolla Cross',
-    version: 'XRE 2.0 Híbrido',
-    year: '2024',
-  };
-
+  const backendResponse = route?.params?.searchResult ?? MOCK_BACKEND_RANGER_RESPONSE;
+  const { vehicle, specs } = backendResponse;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -219,126 +196,98 @@ export const ResultScreen = ({ navigation, route }: any) => {
     }).start();
   }, []);
 
+  const formatSourceAndStatus = (backendSource: string) => {
+    switch (backendSource) {
+      case 'OFFICIAL':
+        return { source: 'Oficial', status: 'high' as const };
+      case 'REVIEW':
+        return { source: 'Review', status: 'medium' as const };
+      case 'ESTIMATED':
+      default:
+        return { source: 'Estimado', status: 'low' as const };
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* HEADER CORPORATIVO */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Text style={styles.backBtn}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Resultado da Análise</Text>
+          <Text style={styles.headerTitle}>Análise Spectrum IA</Text>
           <TouchableOpacity style={styles.pdfBtn}>
-            <Text style={styles.pdfIcon}><FontAwesomeIcon icon={faFilePdf} style={{color: "#ffffff",}} /></Text>
+            <Text style={styles.pdfIcon}><FontAwesomeIcon icon={faFilePdf} style={{ color: "#ffffff" }} /></Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.vehicleInfo}>
-          <Text style={styles.brandText}>{params.brand}</Text>
-          <Text style={styles.modelText}>
-            {params.model} {params.version}
-          </Text>
+          <Text style={styles.brandText}>{vehicle.brand}</Text>
+          <Text style={styles.modelText}>{vehicle.model} {vehicle.trim}</Text>
           <View style={styles.badgeRow}>
             <View style={styles.yearBadge}>
-              <Text style={styles.yearText}>{params.year}</Text>
+              <Text style={styles.yearText}>{vehicle.year}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.statsContainer}>
-          <StatsBar
-            stats={[
-              { label: 'Acurácia', value: '92%', emoji: '✅' },
-            ]}
-          />
+          <StatsBar stats={[{ label: 'Acurácia Geral', value: '98%', emoji: '🧠' }]} />
         </View>
       </View>
 
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollPadding}
-        >
-          {/* Card de insight da IA */}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollPadding}>
+          
           <View style={styles.insightCard}>
-            <Text style={styles.insightEmoji}>🧠</Text>
+            <Text style={styles.insightEmoji}>⚡</Text>
             <Text style={styles.insightText}>
-              A IA identificou que este modelo possui 15% mais eficiência
-              energética que a média da categoria SUV Médio.
+              Análise concluída para a {vehicle.brand} {vehicle.model}. Utilize as seções hambúrguer expansíveis abaixo para gerenciar os dados auditados.
             </Text>
           </View>
 
-          <Text style={styles.sectionTitle}>ESPECIFICAÇÕES TÉCNICAS</Text>
+          <Text style={styles.sectionTitle}>CATEGORIAS DISPONÍVEIS</Text>
 
-          {/* Tabelas de specs */}
-          <SpecTable
-            category="Motorização"
-            data={[
-              {
-                label: 'Potência Max',
-                value: '177 cv (E) / 169 cv (G)',
-                source: 'Oficial',
-                status: 'high',
-              },
-              {
-                label: 'Torque Max',
-                value: '21,4 kgfm',
-                source: 'Oficial',
-                status: 'high',
-              },
-              {
-                label: 'Câmbio',
-                value: 'CVT com 10 marchas',
-                source: 'Review',
-                status: 'medium',
-              },
-            ]}
-          />
+          {/* RENDERIZAÇÃO DINÂMICA COMPLETA */}
+          {Object.keys(specs).map((categoryName) => {
+            const currentCategoryFields = specs[categoryName];
 
-          <SpecTable
-            category="Segurança & ADAS"
-            data={[
-              {
-                label: 'Airbags',
-                value: '7 (Frontais, laterais e cortina)',
-                source: 'Oficial',
-                status: 'high',
-              },
-              {
-                label: 'Frenagem Autônoma',
-                value: 'Sim (Toyota Safety Sense)',
-                source: 'Oficial',
-                status: 'high',
-              },
-              {
-                label: 'Alerta de Faixa',
-                value: 'Sim, com correção',
-                source: 'Estimado',
-                status: 'low',
-              },
-            ]}
-          />
+            const formattedFields = Object.keys(currentCategoryFields).map((fieldName) => {
+              const details = currentCategoryFields[fieldName];
+              const { source, status } = formatSourceAndStatus(details.source);
 
-          {/* ── SEÇÃO DE FONTES EXPANSÍVEL ──────────────────────────── */}
-          <SourcesSection />
+              return {
+                label: fieldName,
+                value: details.value,
+                source: source,
+                status: status,
+              };
+            });
 
-          {/* Botão comparar */}
+            return (
+              <ExpandableCategorySection
+                key={categoryName}
+                title={categoryName}
+                data={formattedFields}
+              />
+            );
+          })}
+
+          {/* ── SEÇÃO DE FONTES UTILIZADAS REINTEGRADA ────────────────── */}
+          <SourcesSection specsData={specs} />
+
+          {/* BOTÃO COMPARAR */}
           <TouchableOpacity
-            style={styles.compareFab}
-            onPress={() =>
-              navigation.navigate('Compare', {
-                vehicleIds: ['corolla_cross_xre_2024'],
-              })
-            }
+            style={[styles.compareFab, { marginTop: 16 }]}
+            onPress={() => navigation.navigate('Compare', { vehicleData: vehicle })}
           >
-            <Text style={styles.compareFabText}>Comparar este veículo</Text>
+            <Text style={styles.compareFabText}>Comparar Ficha Técnico</Text>
           </TouchableOpacity>
+
         </ScrollView>
       </Animated.View>
     </SafeAreaView>
   );
 };
-
-// ── Styles das fontes ─────────────────────────────────────────────────────

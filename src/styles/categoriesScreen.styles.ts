@@ -1,3 +1,4 @@
+// src/styles/categoriesScreen.styles.ts
 import { StyleSheet } from "react-native";
 import { theme } from "./theme";
 import { Platform } from "react-native";
@@ -51,7 +52,7 @@ export const styles = StyleSheet.create({
   },
   bodyContent: {
     padding: 16,
-    paddingTop: 20,
+    paddingTop: 18,
     paddingBottom: 32,
   },
 
@@ -60,7 +61,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 14,
+    marginBottom: 10,
     gap: 8,
   },
   instruction: {
@@ -91,15 +92,37 @@ export const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
 
-  // Grid
+  // Contador de seleção
+  selectionCounter: {
+    marginBottom: 12,
+  },
+  selectionCounterText: {
+    fontSize: 10,
+    color: theme.colors.primary,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  selectionCounterBar: {
+    height: 3,
+    backgroundColor: theme.colors.border,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  selectionCounterFill: {
+    height: '100%',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 2,
+  },
+
+  // Grid — 2 colunas com gap uniforme
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 14,
   },
   cardWrapper: {
-    width: '47.5%',
+    width: '47.8%',
   },
 
   // Category card
@@ -107,10 +130,10 @@ export const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: 14,
-    padding: 12,
+    padding: 11,
     backgroundColor: theme.colors.surface,
     position: 'relative',
-    minHeight: 108,
+    minHeight: 112,
   },
   catCardSelected: {
     borderColor: theme.colors.primary,
@@ -140,25 +163,26 @@ export const styles = StyleSheet.create({
     lineHeight: 11,
   },
   catEmoji: {
-    fontSize: 22,
-    marginBottom: 6,
+    fontSize: 20,
+    marginBottom: 5,
     marginTop: 2,
   },
   catName: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     color: theme.colors.text,
     letterSpacing: -0.1,
     marginBottom: 2,
+    lineHeight: 15,
   },
   catNameSelected: {
     color: theme.colors.primary,
   },
   catSubtitle: {
-    fontSize: 9.5,
+    fontSize: 9,
     color: theme.colors.textLight,
-    lineHeight: 13,
-    marginBottom: 8,
+    lineHeight: 12,
+    marginBottom: 7,
   },
   catSubtitleSelected: {
     color: theme.colors.primary,
@@ -168,7 +192,7 @@ export const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: theme.colors.background,
     borderRadius: 6,
-    paddingHorizontal: 7,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -178,7 +202,7 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(0,24,129,0.25)',
   },
   catBadgeText: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '700',
     color: theme.colors.textLight,
   },
@@ -196,7 +220,7 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(131,192,255,0.4)',
     borderRadius: 12,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   estimateIcon: { fontSize: 20 },
   estimateTitle: {
@@ -231,9 +255,11 @@ export const styles = StyleSheet.create({
   },
   startBtnText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.1,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
   startBtnTextDisabled: {
     color: theme.colors.textMuted,

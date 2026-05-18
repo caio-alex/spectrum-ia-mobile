@@ -1,9 +1,7 @@
 // src/screens/search/CategoriesScreen.tsx
 //
 // TELA 04 — CATEGORIAS DE PESQUISA
-// Fiel ao mockup: header com veículo selecionado, grid 2×3 de categorias
-// com toggle de seleção, contador de categorias e botão "Iniciar pesquisa".
-//
+// Grid 2 colunas com 14 categorias mapeadas às chaves do back-end.
 // Props recebidas via navigation.params: brand, model, version, year
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -11,7 +9,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   SafeAreaView,
   StatusBar,
   ScrollView,
@@ -21,6 +18,7 @@ import {
 import { theme } from '../../styles/theme';
 import { SEARCH_CATEGORIES, type SearchCategory } from '../../mocks/vehicleData';
 import { styles } from '../../styles/categoriesScreen.styles';
+
 // ── Props ─────────────────────────────────────────────────────────────────
 interface RouteParams {
   brand: string;
@@ -56,7 +54,7 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
     const animations = cardAnims.map((anim, i) =>
       Animated.spring(anim, {
         toValue: 1,
-        delay: 80 + i * 60,
+        delay: 60 + i * 45,
         tension: 65,
         friction: 10,
         useNativeDriver: true,
@@ -87,18 +85,25 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleStart = useCallback(() => {
     if (selected.size === 0) return;
-    const categories = SEARCH_CATEGORIES
-      .filter((c) => selected.has(c.id))
-      .map((c) => c.name);
+
+    // Monta tanto os nomes de exibição quanto as backendKeys selecionadas
+    const selectedCategories = SEARCH_CATEGORIES.filter((c) => selected.has(c.id));
+    const categoryNames   = selectedCategories.map((c) => c.name);
+    const categoryKeys    = selectedCategories.map((c) => c.backendKey);
 
     navigation?.navigate('Processing', {
       ...params,
-      categories,
+      categories: categoryNames,
+      categoryKeys,               // enviado ao back-end
     });
   }, [selected, params, navigation]);
 
-  const canStart = selected.size > 0;
+  const canStart    = selected.size > 0;
   const allSelected = selected.size === SEARCH_CATEGORIES.length;
+
+  const estimatedTotal = SEARCH_CATEGORIES
+    .filter((c) => selected.has(c.id))
+    .reduce((sum, c) => sum + c.estimatedFields, 0);
 
   // ── Render ───────────────────────────────────────────────────────────
   return (
@@ -129,7 +134,7 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* Instrução + Selecionar todos */}
         <View style={styles.topRow}>
           <Text style={styles.instruction}>
-            Selecione as categorias de especificações desejadas:
+            Selecione as categorias que deseja analisar:
           </Text>
           <TouchableOpacity
             style={[styles.selectAllBtn, allSelected && styles.selectAllBtnActive]}
@@ -141,6 +146,23 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Contador de seleção */}
+        {selected.size > 0 && (
+          <View style={styles.selectionCounter}>
+            <Text style={styles.selectionCounterText}>
+              {selected.size} de {SEARCH_CATEGORIES.length} categorias selecionadas
+            </Text>
+            <View style={styles.selectionCounterBar}>
+              <View
+                style={[
+                  styles.selectionCounterFill,
+                  { width: `${(selected.size / SEARCH_CATEGORIES.length) * 100}%` },
+                ]}
+              />
+            </View>
+          </View>
+        )}
 
         {/* Grid de categorias 2×N */}
         <View style={styles.grid}>
@@ -176,17 +198,17 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Info de campos estimados */}
         {selected.size > 0 && (
-          <Animated.View style={styles.estimateCard}>
+          <View style={styles.estimateCard}>
             <Text style={styles.estimateIcon}>📊</Text>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.estimateTitle}>
-                ~{getEstimatedFields(selected)} campos serão pesquisados
+                ~{estimatedTotal} campos serão pesquisados
               </Text>
               <Text style={styles.estimateSubtitle}>
-                {selected.size} {selected.size === 1 ? 'categoria' : 'categorias'} selecionada{selected.size > 1 ? 's' : ''}
+                {selected.size} {selected.size === 1 ? 'categoria' : 'categorias'} · dados de múltiplas fontes
               </Text>
             </View>
-          </Animated.View>
+          </View>
         )}
 
         {/* Botão iniciar */}
@@ -198,7 +220,7 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
         >
           <Text style={[styles.startBtnText, !canStart && styles.startBtnTextDisabled]}>
             {canStart
-              ? `Iniciar pesquisa →`
+              ? `Iniciar pesquisa → (${selected.size} ${selected.size === 1 ? 'categoria' : 'categorias'})`
               : 'Selecione ao menos 1 categoria'}
           </Text>
         </TouchableOpacity>
@@ -221,7 +243,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selected, onPress
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.93,
-        duration: 80,
+        duration: 70,
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
@@ -250,12 +272,12 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selected, onPress
         <Text style={styles.catEmoji}>{category.emoji}</Text>
 
         {/* Nome */}
-        <Text style={[styles.catName, selected && styles.catNameSelected]}>
+        <Text style={[styles.catName, selected && styles.catNameSelected]} numberOfLines={2}>
           {category.name}
         </Text>
 
         {/* Subtítulo */}
-        <Text style={[styles.catSubtitle, selected && styles.catSubtitleSelected]}>
+        <Text style={[styles.catSubtitle, selected && styles.catSubtitleSelected]} numberOfLines={2}>
           {category.subtitle}
         </Text>
 
@@ -269,12 +291,3 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, selected, onPress
     </Animated.View>
   );
 };
-
-// ── Helper ────────────────────────────────────────────────────────────────
-function getEstimatedFields(selected: Set<string>): number {
-  return SEARCH_CATEGORIES
-    .filter((c) => selected.has(c.id))
-    .reduce((sum, c) => sum + c.estimatedFields, 0);
-}
-
-// ── Styles ────────────────────────────────────────────────────────────────
