@@ -17,7 +17,7 @@ export const styles = StyleSheet.create({
   yearText: { color: theme.colors.primary, fontSize: 10, fontWeight: '700' },
   sourceCount: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
   statsContainer: { gap: 8 },
-  content: { flex: 1, backgroundColor: theme.colors.background, borderTopLeftRadius: 30, borderTopRightRadius: 30 },
+  content: { flex: 1, backgroundColor: theme.colors.background },
   scrollPadding: { padding: 12, paddingBottom: 100 },
   insightCard: { backgroundColor: theme.colors.surface, padding: 16, borderRadius: 16, flexDirection: 'row', gap: 12, marginBottom: 25 },
   insightEmoji: { fontSize: 24 },
