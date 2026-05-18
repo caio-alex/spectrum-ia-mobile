@@ -12,22 +12,22 @@ export const styles = StyleSheet.create({
   },
   categoryTitle: { 
     backgroundColor: theme.colors.surface, 
-    padding: 12, 
-    fontSize: 11, 
+    padding: 8, 
+    fontSize: 10, 
     fontWeight: '700', 
     color: theme.colors.primary,
     textTransform: 'uppercase'
   },
   row: { 
     flexDirection: 'row', 
-    padding: 14, 
+    padding: 5, 
     borderBottomWidth: 1, 
     borderBottomColor: theme.colors.border 
   },
   labelCol: { flex: 1, justifyContent: 'center' },
-  label: { fontSize: 13, color: theme.colors.textLight, marginBottom: 4 },
+  label: { fontSize: 12, color: theme.colors.textLight, marginBottom: 4 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   valueCol: { flex: 2, alignItems: 'flex-end' },
-  value: { fontSize: 14, fontWeight: '600', color: theme.colors.text, textAlign: 'right' },
+  value: { fontSize: 12, fontWeight: '600', color: theme.colors.text, textAlign: 'right' },
   source: { fontSize: 10, color: theme.colors.textLight, marginTop: 4 }
 });

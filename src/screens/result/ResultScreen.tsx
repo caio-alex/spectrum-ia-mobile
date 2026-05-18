@@ -244,14 +244,12 @@ export const ResultScreen = ({ navigation, route }: any) => {
             <View style={styles.yearBadge}>
               <Text style={styles.yearText}>{params.year}</Text>
             </View>
-            <Text style={styles.sourceCount}>12 fontes consultadas</Text>
           </View>
         </View>
 
         <View style={styles.statsContainer}>
           <StatsBar
             stats={[
-              { label: 'Confiança Geral', value: '98%', emoji: '🎯' },
               { label: 'Acurácia', value: '92%', emoji: '✅' },
             ]}
           />

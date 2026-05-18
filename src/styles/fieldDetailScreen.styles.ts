@@ -14,7 +14,7 @@ export const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 5,
   },
   vehicleContext: {
     color: 'rgba(255,255,255,0.8)',
