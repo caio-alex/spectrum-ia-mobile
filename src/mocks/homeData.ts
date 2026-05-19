@@ -75,19 +75,7 @@ export const MOCK_RECENT_SEARCHES: RecentSearch[] = [
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     relativeTime: 'ontem, 10h15',
     status: 'completed',
-  },
-  {
-    id: 'srch_004',
-    brand: 'Jeep',
-    model: 'Compass',
-    version: 'Limited',
-    categories: ['Motor', 'Conforto'],
-    totalFields: 15,
-    sourceTag: 'Estimado',
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    relativeTime: 'há 3 dias',
-    status: 'in_progress',
-  },
+  }
 ];
 
 // ── MOCK: Estatísticas rápidas do usuário ─────────────────────────────────

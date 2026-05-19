@@ -73,6 +73,35 @@ export const SEARCH_SOURCES: SearchSource[] = [
   { id: 'presskit', name: 'Press kits e PDFs', icon: '📄', maxFields: 4, type: 'estimated' },
 ];
 
+// Adicione isto no final do seu arquivo src/mocks/vehicleData.ts
+
+export const MOCK_RESULT_SOURCES = [
+  { 
+    id: 'src_official', 
+    icon: '🏭', 
+    name: 'Site e Press Kit Oficial', 
+    url: 'Base da Montadora', 
+    type: 'Oficial', 
+    sourceTypeKey: 'OFFICIAL' 
+  },
+  { 
+    id: 'src_review', 
+    icon: '📰', 
+    name: 'Reviews e Portais Automotivos', 
+    url: 'Múltiplos veículos de imprensa', 
+    type: 'Review', 
+    sourceTypeKey: 'REVIEW' 
+  },
+  { 
+    id: 'src_estimated', 
+    icon: '📊', 
+    name: 'Estimativas Baseadas em I.A', 
+    url: 'Mapeamento preditivo', 
+    type: 'Estimado', 
+    sourceTypeKey: 'ESTIMATED' 
+  },
+];
+
 // ── Respostas Completas do Back-end ───────────────────────────────────────
 export const MOCK_VEHICLE_RESPONSES: Record<string, any> = {
   'ranger_limited': {

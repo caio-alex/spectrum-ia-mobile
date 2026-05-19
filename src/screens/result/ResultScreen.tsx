@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faFilePdf } from '@fortawesome/free-solid-svg-icons/faFilePdf';
 import { sourceStyles } from '../../styles/resultScreen.styles';
 
-import { CATEGORY_ICONS, MOCK_VEHICLE_RESPONSES } from '../../mocks/vehicleData';
+import { CATEGORY_ICONS, MOCK_VEHICLE_RESPONSES, MOCK_RESULT_SOURCES } from '../../mocks/vehicleData';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -59,29 +59,33 @@ const ExpandableCategorySection: React.FC<{ title: string; data: any[]; isLast: 
 };
 
 // ── COMPONENTE DE FONTES UTILIZADAS ─────────────────────────────────────────
+// ── COMPONENTE DE FONTES UTILIZADAS ──────────────────────────────────────────
 const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
   const [open, setOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  let oficialCount = 0;
-  let reviewCount = 0;
-  let estimadoCount = 0;
+  // Dicionário dinâmico para facilitar a contagem e cruzar com o Mock
+  const sourceCounts: Record<string, number> = {
+    OFFICIAL: 0,
+    REVIEW: 0,
+    ESTIMATED: 0,
+  };
 
   Object.values(specsData || {}).forEach((category: any) => {
     Object.values(category || {}).forEach((field: any) => {
-      if (field.source === 'OFFICIAL') oficialCount++;
-      else if (field.source === 'REVIEW') reviewCount++;
-      else if (field.source === 'ESTIMATED') estimadoCount++;
+      if (field.source === 'OFFICIAL') sourceCounts.OFFICIAL++;
+      else if (field.source === 'REVIEW') sourceCounts.REVIEW++;
+      else if (field.source === 'ESTIMATED') sourceCounts.ESTIMATED++;
     });
   });
 
-  const totalFields = oficialCount + reviewCount + estimadoCount;
+  const totalFields = sourceCounts.OFFICIAL + sourceCounts.REVIEW + sourceCounts.ESTIMATED;
 
-  const dynamicSources = [
-    { id: 'src_ford_1', icon: '🏭', name: 'Site e Press Kit Oficial Ford', url: 'ford.com.br/picapes/ranger', type: 'Oficial', fieldsFound: oficialCount },
-    { id: 'src_ford_2', icon: '📰', name: 'Revistas e Portais Automotivos', url: 'quatrorodas.abril.com.br/ranger-v6', type: 'Review', fieldsFound: reviewCount },
-    { id: 'src_ford_3', icon: '📊', name: 'Estimativas Baseadas em I.A', url: 'Mapeamento preditivo', type: 'Estimado', fieldsFound: estimadoCount },
-  ].filter(src => src.fieldsFound > 0);
+  // Mapeia as fontes baseadas no Mock do "Back-end" e injeta as contagens encontradas
+  const dynamicSources = MOCK_RESULT_SOURCES.map((src) => ({
+    ...src,
+    fieldsFound: sourceCounts[src.sourceTypeKey] || 0,
+  })).filter(src => src.fieldsFound > 0);
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -92,15 +96,13 @@ const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
   const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
 
   return (
-    <View style={[sourceStyles.section, { marginTop: 8, marginBottom: 12 }]}>
+    <View style={[sourceStyles.section, { marginTop: 15, marginBottom: 12 }]}>
       <TouchableOpacity style={sourceStyles.sectionHeader} onPress={toggle} activeOpacity={0.8}>
         <View style={sourceStyles.sectionLeft}>
           <Text style={{ fontSize: 20, marginRight: 10 }}>📂</Text>
           <View>
             <Text style={sourceStyles.sectionTitle}>Fontes utilizadas</Text>
-            <Text style={sourceStyles.sectionSub}>
-              {dynamicSources.length} origens encontradas · {totalFields} campos
-            </Text>
+            <Text style={sourceStyles.sectionSub}>{dynamicSources.length} origens encontradas · {totalFields} campos</Text>
           </View>
         </View>
         <Animated.Text style={[sourceStyles.chevron, { transform: [{ rotate }] }]}>▾</Animated.Text>
@@ -124,7 +126,6 @@ const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
     </View>
   );
 };
-
 // ── TELA PRINCIPAL DE RESULTADOS ─────────────────────────────────────────────
 export const ResultScreen = ({ navigation, route }: any) => {
   const versionId = route?.params?.versionId || 'ranger_limited'; 

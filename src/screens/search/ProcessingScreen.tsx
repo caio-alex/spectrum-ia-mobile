@@ -120,13 +120,13 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
               ))}
             </View>
           </View>
-          <View style={styles.divider} />
+          {/* <View style={styles.divider} />
           <Text style={styles.sourcesTitle}>Fontes consultadas</Text>
           <View style={styles.sourcesList}>
             {sources.map((src, i) => (
               <SourceItem key={src.id} source={src} pulseAnim={pulseAnims[i]} />
             ))}
-          </View>
+          </View> */}
           {!isDone && (
             <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation?.goBack()} activeOpacity={0.7}>
               <Text style={styles.cancelText}>Cancelar pesquisa</Text>
