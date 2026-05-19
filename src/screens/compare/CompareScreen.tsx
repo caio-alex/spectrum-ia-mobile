@@ -14,7 +14,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Image,
   Animated,
@@ -23,6 +22,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { styles } from '../../styles/compareScreen.styles';
 import {

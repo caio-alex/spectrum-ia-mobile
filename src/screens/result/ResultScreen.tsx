@@ -1,18 +1,19 @@
 // src/screens/result/ResultScreen.tsx
 import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Animated, StatusBar, Platform, UIManager, LayoutAnimation } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Animated, StatusBar, LayoutAnimation, ActivityIndicator, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SpecTable } from '../../components/SpecTable';
 import { StatsBar } from '../../components/StatsBar';
 import { styles } from '../../styles/resultScreen.styles';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faFilePdf } from '@fortawesome/free-solid-svg-icons/faFilePdf';
 import { sourceStyles } from '../../styles/resultScreen.styles';
+import { theme } from '../../styles/theme';
 
-import { CATEGORY_ICONS, MOCK_VEHICLE_RESPONSES, MOCK_RESULT_SOURCES } from '../../mocks/vehicleData';
+import { CATEGORY_ICONS } from '../../mocks/vehicleData';
+import { useSearchResult } from '../../hooks/useSearches';
+import { getExportUrl } from '../../services/searches';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// Na New Architecture do RN, LayoutAnimation já fica habilitado por padrão —
+// `UIManager.setLayoutAnimationEnabledExperimental` virou no-op e emite warning.
 
 // ── COMPONENTE HAMBÚRGUER (ESTILO EXATO DAS FONTES) ─────────────────────────
 const ExpandableCategorySection: React.FC<{ title: string; data: any[]; isLast: boolean }> = ({ title, data, isLast }) => {
@@ -58,51 +59,71 @@ const ExpandableCategorySection: React.FC<{ title: string; data: any[]; isLast: 
   );
 };
 
-// ── COMPONENTE DE FONTES UTILIZADAS ─────────────────────────────────────────
 // ── COMPONENTE DE FONTES UTILIZADAS ──────────────────────────────────────────
-const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
+// Consome o campo `sources` retornado pela API. O backend persiste dentro do
+// próprio JSON de specs e pode vir em dois formatos:
+//   - array: [{ url, title }, ...] — quando o Gemini usou grounding (Google Search)
+//   - string: "Busca completamente feita por conhecimento da IA" — sem grounding
+interface ApiSource {
+  url?: string;
+  title?: string;
+}
+type SourcesPayload = ApiSource[] | string | null | undefined;
+
+const isSourceArray = (s: SourcesPayload): s is ApiSource[] => Array.isArray(s);
+
+const hostnameFromUrl = (url: string | undefined): string => {
+  if (!url) return '';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+};
+
+const openSource = async (url: string | undefined) => {
+  if (!url) return;
+  try {
+    await Linking.openURL(url);
+  } catch {
+    /* noop */
+  }
+};
+
+const SourcesSection: React.FC<{ sources: SourcesPayload }> = ({ sources }) => {
   const [open, setOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Dicionário dinâmico para facilitar a contagem e cruzar com o Mock
-  const sourceCounts: Record<string, number> = {
-    OFFICIAL: 0,
-    REVIEW: 0,
-    ESTIMATED: 0,
-  };
-
-  Object.values(specsData || {}).forEach((category: any) => {
-    Object.values(category || {}).forEach((field: any) => {
-      if (field.source === 'OFFICIAL') sourceCounts.OFFICIAL++;
-      else if (field.source === 'REVIEW') sourceCounts.REVIEW++;
-      else if (field.source === 'ESTIMATED') sourceCounts.ESTIMATED++;
-    });
-  });
-
-  const totalFields = sourceCounts.OFFICIAL + sourceCounts.REVIEW + sourceCounts.ESTIMATED;
-
-  // Mapeia as fontes baseadas no Mock do "Back-end" e injeta as contagens encontradas
-  const dynamicSources = MOCK_RESULT_SOURCES.map((src) => ({
-    ...src,
-    fieldsFound: sourceCounts[src.sourceTypeKey] || 0,
-  })).filter(src => src.fieldsFound > 0);
+  const list = isSourceArray(sources) ? sources : [];
+  const note = !isSourceArray(sources) && typeof sources === 'string' ? sources : null;
+  const count = list.length;
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setOpen((prev) => !prev);
-    Animated.timing(rotateAnim, { toValue: open ? 0 : 1, duration: 220, useNativeDriver: true }).start();
+    Animated.timing(rotateAnim, {
+      toValue: open ? 0 : 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
   };
 
   const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+
+  const subtitle = note
+    ? note
+    : count > 0
+      ? `${count} ${count === 1 ? 'origem encontrada' : 'origens encontradas'}`
+      : 'Nenhuma fonte registrada';
 
   return (
     <View style={[sourceStyles.section, { marginTop: 15, marginBottom: 12 }]}>
       <TouchableOpacity style={sourceStyles.sectionHeader} onPress={toggle} activeOpacity={0.8}>
         <View style={sourceStyles.sectionLeft}>
           <Text style={{ fontSize: 20, marginRight: 10 }}>📂</Text>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={sourceStyles.sectionTitle}>Fontes utilizadas</Text>
-            <Text style={sourceStyles.sectionSub}>{dynamicSources.length} origens encontradas · {totalFields} campos</Text>
+            <Text style={sourceStyles.sectionSub} numberOfLines={2}>{subtitle}</Text>
           </View>
         </View>
         <Animated.Text style={[sourceStyles.chevron, { transform: [{ rotate }] }]}>▾</Animated.Text>
@@ -110,17 +131,41 @@ const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
 
       {open && (
         <View style={sourceStyles.list}>
-          {dynamicSources.map((src, i) => (
-            <View key={src.id} style={[sourceStyles.item, i !== dynamicSources.length - 1 && sourceStyles.itemBorder, { padding: 12 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ fontSize: 18, marginRight: 8 }}>{src.icon}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '600', color: '#333' }}>{src.name}</Text>
-                  <Text style={{ fontSize: 11, color: '#888' }}>{src.fieldsFound} dados extraídos · {src.url}</Text>
-                </View>
-              </View>
+          {note && (
+            <View style={[sourceStyles.item, { padding: 12 }]}>
+              <Text style={{ fontSize: 12, color: '#666', fontStyle: 'italic' }}>{note}</Text>
             </View>
-          ))}
+          )}
+          {list.map((src, i) => {
+            const title = src.title || hostnameFromUrl(src.url) || 'Fonte sem título';
+            const subtitleText = hostnameFromUrl(src.url) || src.url || '';
+            return (
+              <TouchableOpacity
+                key={`${src.url ?? 'src'}-${i}`}
+                style={[
+                  sourceStyles.item,
+                  i !== list.length - 1 && sourceStyles.itemBorder,
+                  { padding: 12 },
+                ]}
+                onPress={() => openSource(src.url)}
+                activeOpacity={src.url ? 0.7 : 1}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 18, marginRight: 8 }}>🔗</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '600', color: '#333' }} numberOfLines={2}>
+                      {title}
+                    </Text>
+                    {subtitleText ? (
+                      <Text style={{ fontSize: 11, color: '#888' }} numberOfLines={1}>
+                        {subtitleText}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
     </View>
@@ -128,18 +173,16 @@ const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
 };
 // ── TELA PRINCIPAL DE RESULTADOS ─────────────────────────────────────────────
 export const ResultScreen = ({ navigation, route }: any) => {
-  const versionId = route?.params?.versionId || 'ranger_limited'; 
-  const categoryKeys = route?.params?.categoryKeys || []; 
+  const searchId: string | undefined = route?.params?.searchId;
+  const categoryKeys: string[] = route?.params?.categoryKeys ?? [];
 
-  const backendResponse = route?.params?.searchResult || MOCK_VEHICLE_RESPONSES[versionId] || MOCK_VEHICLE_RESPONSES['ranger_limited'];
-  
-  const vehicle = backendResponse?.vehicle || {};
-  const specs = backendResponse?.specs || {}; 
+  const { data, isLoading, error, refetch } = useSearchResult(searchId);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
-  }, []);
+  }, [fadeAnim]);
 
   const formatSourceAndStatus = (backendSource: string) => {
     switch (backendSource) {
@@ -149,6 +192,83 @@ export const ResultScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const handleExport = async () => {
+    if (!searchId) return;
+    try {
+      const { downloadUrl } = await getExportUrl(searchId);
+      const fullUrl = downloadUrl.startsWith('http')
+        ? downloadUrl
+        : downloadUrl;
+      await Linking.openURL(fullUrl);
+    } catch {
+      /* silenciar — botão é opcional */
+    }
+  };
+
+  if (!searchId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={{ textAlign: 'center', color: theme.colors.text }}>
+            Pesquisa não identificada. Volte e refaça o fluxo.
+          </Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>
+            <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={theme.colors.primary} />
+          <Text style={{ marginTop: 12, color: theme.colors.textLight }}>
+            Carregando resultado...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={{ textAlign: 'center', color: '#c0392b' }}>
+            Não foi possível carregar o resultado.
+          </Text>
+          <TouchableOpacity onPress={() => refetch()} style={{ marginTop: 16 }}>
+            <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const vehicle = data.vehicle ?? { brand: '', model: '', trim: '', year: null };
+  const rawSpecs = (data.specs ?? {}) as Record<string, unknown>;
+  // O backend grava `sources` dentro do próprio objeto de specs.
+  // Separamos aqui para não tratar como categoria no loop abaixo.
+  const sources = rawSpecs.sources as SourcesPayload;
+  const specs: Record<string, Record<string, { value?: string; source?: string }>> = {};
+  Object.entries(rawSpecs).forEach(([key, value]) => {
+    if (key === 'sources') return;
+    specs[key] = value as Record<string, { value?: string; source?: string }>;
+  });
+
+  const confidencePct =
+    typeof data.overallConfidence === 'number'
+      ? `${Math.round(data.overallConfidence * 100)}%`
+      : data.overallConfidence
+        ? `${Math.round(Number(data.overallConfidence) * 100)}%`
+        : '—';
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -157,46 +277,51 @@ export const ResultScreen = ({ navigation, route }: any) => {
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.backBtn}>←</Text></TouchableOpacity>
           <Text style={styles.headerTitle}>Análise Spectrum IA</Text>
-          <TouchableOpacity style={styles.pdfBtn}><Text style={styles.pdfIcon}><FontAwesomeIcon icon={faFilePdf} style={{ color: "#ffffff" }} /></Text></TouchableOpacity>
+          <TouchableOpacity style={styles.pdfBtn} onPress={handleExport}>
+            <Text style={styles.pdfIcon}>📄</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.vehicleInfo}>
-          <Text style={styles.brandText}>{vehicle?.brand}</Text>
-          <Text style={styles.modelText}>{vehicle?.model} {vehicle?.trim}</Text>
-          <View style={styles.badgeRow}>
-            <View style={styles.yearBadge}><Text style={styles.yearText}>{vehicle?.year}</Text></View>
-          </View>
+          <Text style={styles.brandText}>{vehicle.brand}</Text>
+          <Text style={styles.modelText}>{vehicle.model} {vehicle.trim ?? ''}</Text>
+          {vehicle.year != null && (
+            <View style={styles.badgeRow}>
+              <View style={styles.yearBadge}>
+                <Text style={styles.yearText}>{vehicle.year}</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.statsContainer}>
-          <StatsBar stats={[{ label: 'Acurácia Geral', value: '98%', emoji: '🧠' }]} />
+          <StatsBar stats={[{ label: 'Acurácia Geral', value: confidencePct, emoji: '🧠' }]} />
         </View>
       </View>
 
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollPadding}>
-          
+
           <View style={styles.insightCard}>
             <Text style={styles.insightEmoji}>⚡</Text>
             <Text style={styles.insightText}>
-              Análise concluída para {vehicle?.brand} {vehicle?.model}. Exibindo as categorias selecionadas.
+              Análise concluída para {vehicle.brand} {vehicle.model}. Exibindo as categorias selecionadas.
             </Text>
           </View>
 
           <Text style={styles.sectionTitle}>CATEGORIAS SELECIONADAS</Text>
 
-          {/* O FILTRO SEGURO: Mapeia as chaves dentro de um "section" idêntico ao menu de fontes */}
           <View style={sourceStyles.section}>
             {Object.keys(specs)
               .filter((categoryName) => {
                 if (categoryKeys && categoryKeys.length > 0) {
                   return categoryKeys.includes(categoryName);
                 }
-                return true; 
+                return true;
               })
               .map((categoryName, index, filteredArray) => {
-                const currentCategoryFields = specs[categoryName] || {};
-                
+                const currentCategoryFields = (specs as any)[categoryName] || {};
+
                 const formattedFields = Object.keys(currentCategoryFields).map((fieldName) => {
                   const details = currentCategoryFields[fieldName] || {};
                   const { source, status } = formatSourceAndStatus(details.source || 'ESTIMATED');
@@ -206,18 +331,17 @@ export const ResultScreen = ({ navigation, route }: any) => {
                 const isLast = index === filteredArray.length - 1;
 
                 return (
-                  <ExpandableCategorySection 
-                    key={categoryName} 
-                    title={categoryName} 
-                    data={formattedFields} 
-                    isLast={isLast} 
+                  <ExpandableCategorySection
+                    key={categoryName}
+                    title={categoryName}
+                    data={formattedFields}
+                    isLast={isLast}
                   />
                 );
-            })}
+              })}
           </View>
 
-          {/* ── SEÇÃO DE FONTES ── */}
-          <SourcesSection specsData={specs} />
+          <SourcesSection sources={sources} />
 
           <TouchableOpacity
             style={[styles.compareFab, { marginTop: 16 }]}

@@ -9,12 +9,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   Animated,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { SEARCH_CATEGORIES, type SearchCategory } from '../../mocks/vehicleData';
 import { styles } from '../../styles/categoriesScreen.styles';
@@ -23,8 +23,8 @@ import { styles } from '../../styles/categoriesScreen.styles';
 interface RouteParams {
   brand: string;
   model: string;
-  version: string;
-  year?: string;
+  trim: string;
+  year: number;
 }
 
 interface Props {
@@ -34,14 +34,15 @@ interface Props {
 
 // ── Componente principal ─────────────────────────────────────────────────
 export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
-  const params = route?.params ?? {
-    brand: 'Toyota',
-    model: 'Corolla Cross',
-    version: 'XRE',
-    year: '2024',
-  };
+  const params = route?.params;
 
-  const vehicleLabel = `${params.brand} ${params.model} ${params.version}`;
+  if (!params) {
+    // Sem parâmetros válidos não há como prosseguir — volta para SearchScreen.
+    navigation?.goBack?.();
+    return null;
+  }
+
+  const vehicleLabel = `${params.brand} ${params.model} ${params.trim}`;
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -92,9 +93,12 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
     const categoryKeys    = selectedCategories.map((c) => c.backendKey);
 
     navigation?.navigate('Processing', {
-      ...params,
+      brand: params.brand,
+      model: params.model,
+      trim: params.trim,
+      year: params.year,
       categories: categoryNames,
-      categoryKeys,               // enviado ao back-end
+      categoryKeys,               // enviado ao back-end (POST /v1/searches#categories)
     });
   }, [selected, params, navigation]);
 

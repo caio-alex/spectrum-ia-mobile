@@ -1,14 +1,14 @@
 // src/screens/result/FieldDetailScreen.tsx
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   StatusBar,
-  ScrollView
+  ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 // Utilizando os ícones nativos do Expo
 import { FontAwesome5, Ionicons } from '@expo/vector-icons'; 
 import { theme } from '../../styles/theme';
