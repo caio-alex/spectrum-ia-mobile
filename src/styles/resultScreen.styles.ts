@@ -42,7 +42,7 @@ export const sourceStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 14,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#fff',
   },
   sectionLeft: {
     flexDirection: 'row',

@@ -1,104 +1,64 @@
 // src/screens/result/ResultScreen.tsx
 import React, { useRef, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  Animated,
-  StatusBar,
-  Platform,
-  UIManager,
-  LayoutAnimation,
-} from 'react-native';
+import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Animated, StatusBar, Platform, UIManager, LayoutAnimation } from 'react-native';
 import { SpecTable } from '../../components/SpecTable';
 import { StatsBar } from '../../components/StatsBar';
 import { styles } from '../../styles/resultScreen.styles';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faLink } from '@fortawesome/free-solid-svg-icons/faLink';
-import { faBars } from '@fortawesome/free-solid-svg-icons/faBars';
 import { faFilePdf } from '@fortawesome/free-solid-svg-icons/faFilePdf';
 import { sourceStyles } from '../../styles/resultScreen.styles';
 
-import { 
-  CATEGORY_ICONS, 
-  MOCK_BACKEND_RANGER_RESPONSE 
-} from '../../mocks/vehicleData';
+import { CATEGORY_ICONS, MOCK_VEHICLE_RESPONSES } from '../../mocks/vehicleData';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// ── COMPONENTE HAMBÚRGUER EXPANSÍVEL POR CATEGORIA ──────────────────────
-const ExpandableCategorySection: React.FC<{
-  title: string;
-  data: any[];
-}> = ({ title, data }) => {
+// ── COMPONENTE HAMBÚRGUER (ESTILO EXATO DAS FONTES) ─────────────────────────
+const ExpandableCategorySection: React.FC<{ title: string; data: any[]; isLast: boolean }> = ({ title, data, isLast }) => {
   const [isOpen, setIsOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const toggleSection = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsOpen((prev) => !prev);
-    Animated.timing(rotateAnim, {
-      toValue: isOpen ? 0 : 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(rotateAnim, { toValue: isOpen ? 0 : 1, duration: 220, useNativeDriver: true }).start();
   };
 
-  const rotate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
-
+  const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
   const normalizedKey = title.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const icon = CATEGORY_ICONS[normalizedKey] || '📊';
 
   return (
-    <View style={{ marginBottom: 12, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#eef0f7' }}>
+    <View style={[!isLast && sourceStyles.itemBorder]}>
       <TouchableOpacity
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 16,
-          backgroundColor: '#f8f9fd',
-        }}
-        onPress={toggleSection}
-        activeOpacity={0.8}
+        style={[sourceStyles.item, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+        onPress={toggleSection} activeOpacity={0.8}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <Text style={{ fontSize: 20, marginRight: 12 }}>{icon}</Text>
-          <View>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#001881', letterSpacing: 0.3 }}>
-              {title.toUpperCase()}
-            </Text>
-            <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
-              {data.length} campo{data.length !== 1 ? 's' : ''} encontrado{data.length !== 1 ? 's' : ''}
-            </Text>
+        <View style={sourceStyles.header}>
+          <View style={sourceStyles.iconBox}>
+            <Text style={sourceStyles.icon}>{icon}</Text>
+          </View>
+          <View style={sourceStyles.headerContent}>
+            <Text style={sourceStyles.name}>{title.toUpperCase()}</Text>
+            <Text style={sourceStyles.fields}>{data?.length || 0} campo(s) extraído(s)</Text>
           </View>
         </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <FontAwesomeIcon icon={faBars} size={14} style={{ color: '#001881', marginRight: 12, opacity: 0.4 }} />
-          <Animated.Text style={{ fontSize: 16, color: '#001881', transform: [{ rotate }] }}>
-            ▾
-          </Animated.Text>
-        </View>
+        <Animated.Text style={[sourceStyles.chevron, { transform: [{ rotate }] }]}>▾</Animated.Text>
       </TouchableOpacity>
 
-      {isOpen && (
-        <View style={{ paddingHorizontal: 4, paddingBottom: 8 }}>
-          <SpecTable category="" data={data} />
-        </View>
-      )}
+      
+  {isOpen && (
+    // Esse padding serve apenas para as letras não encostarem na borda, sem criar caixas novas!
+    <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+      <SpecTable category="" data={data || []} />
+    </View>
+  )}
     </View>
   );
 };
 
-// ── COMPONENTE DE FONTES UTILIZADAS (DINÂMICO) ───────────────────────────
+// ── COMPONENTE DE FONTES UTILIZADAS ─────────────────────────────────────────
 const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
   const [open, setOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -118,32 +78,15 @@ const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
   const totalFields = oficialCount + reviewCount + estimadoCount;
 
   const dynamicSources = [
-    {
-      id: 'src_ford_1',
-      icon: '🏭',
-      name: 'Site e Press Kit Oficial Ford',
-      url: 'ford.com.br/picapes/ranger',
-      type: 'Oficial',
-      fieldsFound: oficialCount,
-    },
-    {
-      id: 'src_ford_2',
-      icon: '📰',
-      name: 'Revistas e Portais Automotivos',
-      url: 'quatrorodas.abril.com.br/ranger-v6',
-      type: 'Review',
-      fieldsFound: reviewCount,
-    },
+    { id: 'src_ford_1', icon: '🏭', name: 'Site e Press Kit Oficial Ford', url: 'ford.com.br/picapes/ranger', type: 'Oficial', fieldsFound: oficialCount },
+    { id: 'src_ford_2', icon: '📰', name: 'Revistas e Portais Automotivos', url: 'quatrorodas.abril.com.br/ranger-v6', type: 'Review', fieldsFound: reviewCount },
+    { id: 'src_ford_3', icon: '📊', name: 'Estimativas Baseadas em I.A', url: 'Mapeamento preditivo', type: 'Estimado', fieldsFound: estimadoCount },
   ].filter(src => src.fieldsFound > 0);
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setOpen((prev) => !prev);
-    Animated.timing(rotateAnim, {
-      toValue: open ? 0 : 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(rotateAnim, { toValue: open ? 0 : 1, duration: 220, useNativeDriver: true }).start();
   };
 
   const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
@@ -152,11 +95,11 @@ const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
     <View style={[sourceStyles.section, { marginTop: 8, marginBottom: 12 }]}>
       <TouchableOpacity style={sourceStyles.sectionHeader} onPress={toggle} activeOpacity={0.8}>
         <View style={sourceStyles.sectionLeft}>
-          <Text style={sourceStyles.sectionIcon}><FontAwesomeIcon icon={faBars} style={{ color: "#001881" }} /></Text>
+          <Text style={{ fontSize: 20, marginRight: 10 }}>📂</Text>
           <View>
             <Text style={sourceStyles.sectionTitle}>Fontes utilizadas</Text>
             <Text style={sourceStyles.sectionSub}>
-              {dynamicSources.length} origens encontradas · {totalFields} mapeamentos
+              {dynamicSources.length} origens encontradas · {totalFields} campos
             </Text>
           </View>
         </View>
@@ -182,29 +125,26 @@ const SourcesSection: React.FC<{ specsData: any }> = ({ specsData }) => {
   );
 };
 
-// ── TELA PRINCIPAL DE RESULTADOS ─────────────────────────────────────────
+// ── TELA PRINCIPAL DE RESULTADOS ─────────────────────────────────────────────
 export const ResultScreen = ({ navigation, route }: any) => {
-  const backendResponse = route?.params?.searchResult ?? MOCK_BACKEND_RANGER_RESPONSE;
-  const { vehicle, specs } = backendResponse;
+  const versionId = route?.params?.versionId || 'ranger_limited'; 
+  const categoryKeys = route?.params?.categoryKeys || []; 
+
+  const backendResponse = route?.params?.searchResult || MOCK_VEHICLE_RESPONSES[versionId] || MOCK_VEHICLE_RESPONSES['ranger_limited'];
+  
+  const vehicle = backendResponse?.vehicle || {};
+  const specs = backendResponse?.specs || {}; 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
 
   const formatSourceAndStatus = (backendSource: string) => {
     switch (backendSource) {
-      case 'OFFICIAL':
-        return { source: 'Oficial', status: 'high' as const };
-      case 'REVIEW':
-        return { source: 'Review', status: 'medium' as const };
-      case 'ESTIMATED':
-      default:
-        return { source: 'Estimado', status: 'low' as const };
+      case 'OFFICIAL': return { source: 'Oficial', status: 'high' as const };
+      case 'REVIEW': return { source: 'Review', status: 'medium' as const };
+      default: return { source: 'Estimado', status: 'low' as const };
     }
   };
 
@@ -214,22 +154,16 @@ export const ResultScreen = ({ navigation, route }: any) => {
 
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtn}>←</Text>
-          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.backBtn}>←</Text></TouchableOpacity>
           <Text style={styles.headerTitle}>Análise Spectrum IA</Text>
-          <TouchableOpacity style={styles.pdfBtn}>
-            <Text style={styles.pdfIcon}><FontAwesomeIcon icon={faFilePdf} style={{ color: "#ffffff" }} /></Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.pdfBtn}><Text style={styles.pdfIcon}><FontAwesomeIcon icon={faFilePdf} style={{ color: "#ffffff" }} /></Text></TouchableOpacity>
         </View>
 
         <View style={styles.vehicleInfo}>
-          <Text style={styles.brandText}>{vehicle.brand}</Text>
-          <Text style={styles.modelText}>{vehicle.model} {vehicle.trim}</Text>
+          <Text style={styles.brandText}>{vehicle?.brand}</Text>
+          <Text style={styles.modelText}>{vehicle?.model} {vehicle?.trim}</Text>
           <View style={styles.badgeRow}>
-            <View style={styles.yearBadge}>
-              <Text style={styles.yearText}>{vehicle.year}</Text>
-            </View>
+            <View style={styles.yearBadge}><Text style={styles.yearText}>{vehicle?.year}</Text></View>
           </View>
         </View>
 
@@ -244,46 +178,51 @@ export const ResultScreen = ({ navigation, route }: any) => {
           <View style={styles.insightCard}>
             <Text style={styles.insightEmoji}>⚡</Text>
             <Text style={styles.insightText}>
-              Análise concluída para a {vehicle.brand} {vehicle.model}. Utilize as seções hambúrguer expansíveis abaixo para gerenciar os dados auditados.
+              Análise concluída para {vehicle?.brand} {vehicle?.model}. Exibindo as categorias selecionadas.
             </Text>
           </View>
 
-          <Text style={styles.sectionTitle}>CATEGORIAS DISPONÍVEIS</Text>
+          <Text style={styles.sectionTitle}>CATEGORIAS SELECIONADAS</Text>
 
-          {/* RENDERIZAÇÃO DINÂMICA COMPLETA */}
-          {Object.keys(specs).map((categoryName) => {
-            const currentCategoryFields = specs[categoryName];
+          {/* O FILTRO SEGURO: Mapeia as chaves dentro de um "section" idêntico ao menu de fontes */}
+          <View style={sourceStyles.section}>
+            {Object.keys(specs)
+              .filter((categoryName) => {
+                if (categoryKeys && categoryKeys.length > 0) {
+                  return categoryKeys.includes(categoryName);
+                }
+                return true; 
+              })
+              .map((categoryName, index, filteredArray) => {
+                const currentCategoryFields = specs[categoryName] || {};
+                
+                const formattedFields = Object.keys(currentCategoryFields).map((fieldName) => {
+                  const details = currentCategoryFields[fieldName] || {};
+                  const { source, status } = formatSourceAndStatus(details.source || 'ESTIMATED');
+                  return { label: fieldName, value: details.value || 'N/A', source, status };
+                });
 
-            const formattedFields = Object.keys(currentCategoryFields).map((fieldName) => {
-              const details = currentCategoryFields[fieldName];
-              const { source, status } = formatSourceAndStatus(details.source);
+                const isLast = index === filteredArray.length - 1;
 
-              return {
-                label: fieldName,
-                value: details.value,
-                source: source,
-                status: status,
-              };
-            });
+                return (
+                  <ExpandableCategorySection 
+                    key={categoryName} 
+                    title={categoryName} 
+                    data={formattedFields} 
+                    isLast={isLast} 
+                  />
+                );
+            })}
+          </View>
 
-            return (
-              <ExpandableCategorySection
-                key={categoryName}
-                title={categoryName}
-                data={formattedFields}
-              />
-            );
-          })}
-
-          {/* ── SEÇÃO DE FONTES UTILIZADAS REINTEGRADA ────────────────── */}
+          {/* ── SEÇÃO DE FONTES ── */}
           <SourcesSection specsData={specs} />
 
-          {/* BOTÃO COMPARAR */}
           <TouchableOpacity
             style={[styles.compareFab, { marginTop: 16 }]}
             onPress={() => navigation.navigate('Compare', { vehicleData: vehicle })}
           >
-            <Text style={styles.compareFabText}>Comparar Ficha Técnico</Text>
+            <Text style={styles.compareFabText}>Comparar Ficha Técnica</Text>
           </TouchableOpacity>
 
         </ScrollView>

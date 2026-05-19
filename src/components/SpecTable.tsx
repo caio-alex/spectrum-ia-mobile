@@ -1,8 +1,10 @@
+// src/components/SpecTable.tsx
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { theme } from '../styles/theme';
 import { useNavigation } from '@react-navigation/native';
 import { styles } from '../styles/specTable.styles';
+
 interface SpecItem {
   label: string;
   value: string;
@@ -11,7 +13,7 @@ interface SpecItem {
 }
 
 export const SpecTable = ({ category, data }: { category: string, data: SpecItem[] }) => {
-  const navigation = useNavigation<any>(); // 2. Inicialize a navegação
+  const navigation = useNavigation<any>();
 
   const getStatusColor = (status: string) => {
     if (status === 'high') return '#4CAF50'; // Oficial
@@ -19,7 +21,6 @@ export const SpecTable = ({ category, data }: { category: string, data: SpecItem
     return '#F44336'; // Estimado
   };
 
-  // Mapeamento do status para a tipagem que a Tela 07 espera
   const getConfidenceLevel = (status: string) => {
     if (status === 'high') return 'official';
     if (status === 'medium') return 'review';
@@ -27,25 +28,26 @@ export const SpecTable = ({ category, data }: { category: string, data: SpecItem
   };
 
   return (
-    <View style={styles.tableContainer}>
-      <Text style={styles.categoryTitle}>{category}</Text>
+    // Removido o "styles.tableContainer" para que ele se mescle ao menu expansível
+    <View>
+      {/* Só renderiza o título se a categoria for preenchida (evita espaços em branco) */}
+      {!!category && <Text style={styles.categoryTitle}>{category}</Text>}
+      
       {data.map((item, index) => (
-        // 3. Trocamos <View> por <TouchableOpacity> e adicionamos o onPress
         <TouchableOpacity 
           key={index} 
           style={[styles.row, index === data.length - 1 && { borderBottomWidth: 0 }]}
           activeOpacity={0.7}
           // onPress={() => {
-          //   // 4. Dispara a navegação passando os dados da linha clicada
           //   navigation.navigate('FieldDetail', {
-          //     vehicleName: 'Veículo Selecionado', // Idealmente você passaria isso por prop no SpecTable
+          //     vehicleName: 'Veículo Selecionado',
           //     fieldCategory: category,
           //     fieldName: item.label,
           //     fieldValue: item.value,
           //     confidence: getConfidenceLevel(item.status),
           //     sourceName: item.source,
-          //     sourceUrl: 'https://exemplo.com/fonte', // Mock temporário
-          //     sourceQuote: 'Trecho extraído do texto original pela IA para embasar este dado.' // Mock temporário
+          //     sourceUrl: 'https://exemplo.com/fonte',
+          //     sourceQuote: 'Trecho extraído do texto original pela IA para embasar este dado.'
           //   });
           // }}
         >
@@ -62,4 +64,3 @@ export const SpecTable = ({ category, data }: { category: string, data: SpecItem
     </View>
   );
 };
-
