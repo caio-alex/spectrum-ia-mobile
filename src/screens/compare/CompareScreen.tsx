@@ -51,7 +51,6 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [highlightWinner, setHighlightWinner] = useState(true);
-  const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -143,9 +142,7 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
                 key={vehicle.id}
                 vehicle={vehicle}
                 index={idx}
-                imageLoading={imageLoading[vehicle.id]}
-                onImageLoadStart={() => setImageLoading((p) => ({ ...p, [vehicle.id]: true }))}
-                onImageLoadEnd={() => setImageLoading((p) => ({ ...p, [vehicle.id]: false }))}
+                
               />
             ))}
           </View>
@@ -208,31 +205,6 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
             </View>
           ))}
 
-          {/* ── BOTÃO COMPRAR ─────────────────────────────────────── */}
-          <View style={styles.buySection}>
-            <Text style={styles.buySectionTitle}>Pronto para decidir?</Text>
-            <Text style={styles.buySectionSub}>
-              Veja ofertas disponíveis nas concessionárias Ford parceiras
-            </Text>
-            {selectedVehicles.map((vehicle) => (
-              <TouchableOpacity
-                key={vehicle.id}
-                style={[styles.buyBtn, { borderColor: vehicle.brandColor }]}
-                onPress={() => navigation?.navigate('DealerSearch', { vehicleId: vehicle.id })}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.buyBtnIcon, { backgroundColor: vehicle.brandColor + '15' }]}>
-                  <Text style={styles.buyBtnEmoji}>🏪</Text>
-                </View>
-                <View style={styles.buyBtnContent}>
-                  <Text style={styles.buyBtnModel}>{vehicle.brand} {vehicle.model}</Text>
-                  <Text style={styles.buyBtnInfo}>Ver concessionárias • A partir de {vehicle.priceFrom}</Text>
-                </View>
-                <Text style={styles.buyBtnArrow}>→</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
           <View style={{ height: 40 }} />
         </ScrollView>
       </Animated.View>
@@ -263,26 +235,15 @@ const VehicleChip: React.FC<{
 const VehicleCard: React.FC<{
   vehicle: CompareVehicle;
   index: number;
-  imageLoading?: boolean;
-  onImageLoadStart: () => void;
-  onImageLoadEnd: () => void;
-}> = ({ vehicle, index, imageLoading, onImageLoadStart, onImageLoadEnd }) => (
+}> = ({ vehicle, index }) => (
   <View style={[styles.vehicleCard, { borderTopColor: vehicle.brandColor }]}>
     {/* Foto via API gratuita (Car Image API / Unsplash fallback) */}
     <View style={styles.vehicleImageContainer}>
-      {imageLoading && (
-        <ActivityIndicator
-          style={styles.vehicleImageLoader}
-          size="small"
-          color={theme.colors.primary}
-        />
-      )}
       <Image
         source={{ uri: vehicle.imageUrl }}
         style={styles.vehicleImage}
         resizeMode="cover"
-        onLoadStart={onImageLoadStart}
-        onLoadEnd={onImageLoadEnd}
+       
         defaultSource={require('../../../assets/icon.png')}
       />
       <View style={[styles.vehicleBrandBadge, { backgroundColor: vehicle.brandColor }]}>
