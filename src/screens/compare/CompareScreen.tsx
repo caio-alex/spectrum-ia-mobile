@@ -8,7 +8,7 @@
 //   - Fotos: https://www.carqueryapi.com/ ou https://car-api.io (plano gratuito)
 //   - Specs: GET /api/v1/searches/:id/result
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import {
   TouchableOpacity,
   StatusBar,
   Image,
-  Animated,
   FlatList,
   Platform,
   ActivityIndicator,
@@ -51,16 +50,6 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [highlightWinner, setHighlightWinner] = useState(true);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }),
-    ]).start();
-  }, []);
 
   const toggleVehicle = useCallback((vehicle: CompareVehicle) => {
     setSelectedVehicles((prev) => {
@@ -114,10 +103,11 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[1]}>
+      <View style={styles.content}>
+        {/* stickyHeaderIndices={[4]} fixa o componente StickyVehicleHeader no topo ao scrollar */}
+        <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[4]}>
 
-          {/* ── SELEÇÃO DE VEÍCULOS ──────────────────────────────── */}
+          {/* ── SELEÇÃO DE VEÍCULOS (Index 0) ─────────────────────── */}
           <View style={styles.vehicleSelector}>
             <Text style={styles.sectionLabel}>VEÍCULOS ANALISADOS</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleListContent}>
@@ -135,22 +125,21 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
             </ScrollView>
           </View>
 
-          {/* ── CARDS DE VEÍCULOS COM FOTOS ──────────────────────── */}
+          {/* ── CARDS DE VEÍCULOS COM FOTOS (Index 1) ─────────────── */}
           <View style={styles.vehicleCardsRow}>
             {selectedVehicles.map((vehicle, idx) => (
               <VehicleCard
                 key={vehicle.id}
                 vehicle={vehicle}
                 index={idx}
-                
               />
             ))}
           </View>
 
-          {/* ── SCORE GERAL ──────────────────────────────────────── */}
+          {/* ── SCORE GERAL (Index 2) ────────────────────────────── */}
           <ScoreBar vehicles={selectedVehicles} />
 
-          {/* ── FILTRO DE CATEGORIAS (sticky) ────────────────────── */}
+          {/* ── FILTRO DE CATEGORIAS (Index 3) ───────────────────── */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -178,7 +167,10 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
             ))}
           </ScrollView>
 
-          {/* ── TABELAS DE SPECS POR CATEGORIA ───────────────────── */}
+          {/* ── CABEÇALHO FIXO DE CARROS DA TABELA (Index 4) ──────── */}
+          <StickyVehicleHeader vehicles={selectedVehicles} />
+
+          {/* ── TABELAS DE SPECS POR CATEGORIA (Index 5+) ─────────── */}
           {visibleCategories.map((category) => (
             <View key={category.id} style={styles.specSection}>
               <View style={styles.specSectionHeader}>
@@ -207,7 +199,7 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
 
           <View style={{ height: 40 }} />
         </ScrollView>
-      </Animated.View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -243,7 +235,6 @@ const VehicleCard: React.FC<{
         source={{ uri: vehicle.imageUrl }}
         style={styles.vehicleImage}
         resizeMode="cover"
-       
         defaultSource={require('../../../assets/icon.png')}
       />
       <View style={[styles.vehicleBrandBadge, { backgroundColor: vehicle.brandColor }]}>
@@ -302,6 +293,31 @@ const ScoreBar: React.FC<{ vehicles: CompareVehicle[] }> = ({ vehicles }) => {
           </View>
         </View>
       ))}
+    </View>
+  );
+};
+
+// ── StickyVehicleHeader ─────────────────────────────────────────────────────
+const StickyVehicleHeader: React.FC<{ vehicles: CompareVehicle[] }> = ({ vehicles }) => {
+  const colWidth = vehicles.length === 2 ? '40%' : '30%';
+
+  return (
+    <View style={styles.stickyHeader}>
+      <View style={styles.stickyHeaderLabelPlaceholder}>
+        <Text style={styles.stickyHeaderTitle}>ESPECIFICAÇÕES</Text>
+      </View>
+      <View style={styles.stickyHeaderColumns}>
+        {vehicles.map((v) => (
+          <View key={v.id} style={[styles.stickyHeaderCol, { width: colWidth }]}>
+            <Text style={[styles.stickyHeaderText, { color: v.brandColor }]} numberOfLines={1}>
+              {v.brand}
+            </Text>
+            <Text style={styles.stickyHeaderSubtext} numberOfLines={1}>
+              {v.model}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 };

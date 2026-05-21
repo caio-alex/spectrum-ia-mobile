@@ -17,16 +17,16 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emoji: {
-    fontSize: 12,
+    fontSize: 18,
   },
   value: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     color: theme.colors.primary,
     letterSpacing: -0.5,
   },
   label: {
-    fontSize: 8,
+    fontSize: 12,
     color: theme.colors.textLight,
     fontWeight: '600',
     textTransform: 'uppercase',
