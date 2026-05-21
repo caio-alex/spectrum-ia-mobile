@@ -5,7 +5,7 @@ import { Platform } from "react-native";
 export const fieldStyles = StyleSheet.create({
   wrap: { marginBottom: 12 },
   label: {
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '700',
     color: theme.colors.textLight,
     textTransform: 'uppercase',
@@ -33,24 +33,24 @@ export const fieldStyles = StyleSheet.create({
   },
   left: { flex: 1 },
   value: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: theme.colors.text,
   },
   placeholder: {
     color: theme.colors.textMuted,
     fontWeight: '400',
-    fontSize: 13,
+    fontSize: 14,
   },
   subValue: {
-    fontSize: 10,
+    fontSize: 14,
     color: theme.colors.primary,
     fontWeight: '500',
     marginTop: 1,
   },
   disabledText: { color: theme.colors.textMuted },
   chevron: {
-    fontSize: 12,
+    fontSize: 14,
     color: theme.colors.textMuted,
     marginLeft: 8,
   },
@@ -83,11 +83,11 @@ export const progressStyles = StyleSheet.create({
     backgroundColor: theme.colors.success,
     borderColor: theme.colors.success,
   },
-  dotCheck: { fontSize: 10, color: '#fff', fontWeight: '700' },
-  dotNum: { fontSize: 9, color: theme.colors.textMuted, fontWeight: '700' },
+  dotCheck: { fontSize: 12, color: '#fff', fontWeight: '700' },
+  dotNum: { fontSize: 12, color: theme.colors.textMuted, fontWeight: '700' },
   dotNumActive: { color: '#fff' },
   label: {
-    fontSize: 8,
+    fontSize: 12,
     color: theme.colors.textMuted,
     fontWeight: '500',
     textAlign: 'center',
@@ -126,17 +126,17 @@ export const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   backArrow: {
-    fontSize: 14,
+    fontSize: 22,
     color: 'rgba(131,192,255,0.9)',
     fontWeight: '500',
   },
   backLabel: {
-    fontSize: 11,
+    fontSize: 20,
     color: 'rgba(131,192,255,0.9)',
     fontWeight: '500',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#fff',
     letterSpacing: -0.3,
@@ -155,7 +155,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   instruction: {
-    fontSize: 12,
+    fontSize: 16,
     color: theme.colors.textLight,
     lineHeight: 18,
     marginBottom: 18,
@@ -176,13 +176,13 @@ export const styles = StyleSheet.create({
   tipIcon: { fontSize: 16, marginTop: 1 },
   tipContent: { flex: 1 },
   tipTitle: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '700',
     color: theme.colors.primary,
     marginBottom: 2,
   },
   tipText: {
-    fontSize: 11,
+    fontSize: 14,
     color: theme.colors.primary,
     opacity: 0.8,
     lineHeight: 16,
@@ -208,7 +208,7 @@ export const styles = StyleSheet.create({
   },
   continueBtnText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 20,
     fontWeight: '700',
     letterSpacing: 0.1,
   },
@@ -249,7 +249,7 @@ export const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sheetTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: theme.colors.text,
     marginBottom: 12,
@@ -270,7 +270,7 @@ export const styles = StyleSheet.create({
   },
   optionLeft: { flex: 1 },
   optionLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: theme.colors.text,
   },
@@ -279,7 +279,7 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
   },
   optionSubtitle: {
-    fontSize: 10,
+    fontSize: 12,
     color: theme.colors.textLight,
     marginTop: 2,
   },

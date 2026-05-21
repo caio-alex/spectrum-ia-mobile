@@ -41,7 +41,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerGreeting: {
-    fontSize: 12,
+    fontSize: 16,
     color: 'rgba(131,192,255,0.85)',
     fontWeight: '400',
     marginBottom: 2,
@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
   // Adicionar junto aos outros styles do Header
   logoContainer: {
     width: '100%',         // largura fixa do container
-    height: 30,         // altura fixa — controla o espaço vertical
+    height: 40,         // altura fixa — controla o espaço vertical
     justifyContent: 'center',
     paddingBottom: 8
   },
@@ -78,7 +78,7 @@ export const styles = StyleSheet.create({
   },
   avatarText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
 
@@ -88,6 +88,7 @@ export const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+
   },
   scrollContent: {
     padding: 16,
@@ -119,7 +120,7 @@ export const styles = StyleSheet.create({
   },
   newSearchLabel: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.1,
   },
@@ -132,14 +133,14 @@ export const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: theme.colors.textLight,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   sectionAction: {
-    fontSize: 11,
+    fontSize: 16,
     fontWeight: '600',
     color: theme.colors.primary,
   },
@@ -170,7 +171,7 @@ export const styles = StyleSheet.create({
     elevation: 4,
   },
   fabTooltipText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '700',
     color: theme.colors.primary,
   },
@@ -218,7 +219,7 @@ export const styles = StyleSheet.create({
     opacity: 1,
   },
   navLabel: {
-    fontSize: 9.5,
+    fontSize: 12,
     fontWeight: '600',
     color: theme.colors.textLight,
     letterSpacing: 0.1,

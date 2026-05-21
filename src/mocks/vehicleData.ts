@@ -1,8 +1,15 @@
 // src/mocks/vehicleData.ts
-
-export interface VehicleBrand { id: string; name: string; modelCount: number; country: string; }
-export interface VehicleModel { id: string; brandId: string; name: string; segment: string; }
-export interface VehicleVersion { id: string; modelId: string; name: string; year: string; engine: string; transmission: string; }
+//
+// Os mocks de marcas / modelos / versões / MOCK_VEHICLE_RESPONSES /
+// MOCK_RESULT_SOURCES foram removidos após a integração com a API real
+// (GET /v1/vehicles/{brands,models,trims}, GET /v1/searches/{id}/result —
+// que já entrega o campo `sources` real dentro do JSON de specs).
+//
+// Continuam aqui os catálogos fixos que ainda não têm endpoint no backend:
+//   - SEARCH_CATEGORIES: 14 categorias de pesquisa exibidas na CategoriesScreen.
+//     `backendKey` precisa bater 1:1 com o que o backend aceita em SearchRequest.categories.
+//   - SEARCH_SOURCES: catálogo visual ainda usado pela ProcessingScreen.
+//   - CATEGORY_ICONS: mapeamento de emoji por categoria.
 
 export interface SearchCategory {
   id: string;
@@ -21,26 +28,6 @@ export interface SearchSource {
   type: 'official' | 'review' | 'estimated';
 }
 
-// ── Marcas, Modelos e Versões ─────────────────────────────────────────────
-export const VEHICLE_BRANDS: VehicleBrand[] = [
-  { id: 'ford',   name: 'Ford',   modelCount: 5, country: 'EUA' },
-  { id: 'toyota', name: 'Toyota', modelCount: 8, country: 'Japão' },
-];
-
-export const VEHICLE_MODELS: VehicleModel[] = [
-  { id: 'ranger',        brandId: 'ford',   name: 'Ranger',        segment: 'Picape' },
-  { id: 'corolla_cross', brandId: 'toyota', name: 'Corolla Cross', segment: 'SUV compacto' },
-];
-
-export const VEHICLE_VERSIONS: VehicleVersion[] = [
-  { id: 'ranger_limited', modelId: 'ranger',        name: 'Limited 3.0 V6', year: '2026', engine: '3.0L V6', transmission: 'Aut 10v' },
-  { id: 'cc_xre_24',      modelId: 'corolla_cross', name: 'XRE',            year: '2024', engine: '2.0 Flex',  transmission: 'CVT' },
-];
-
-export function getModelsByBrand(brandId: string): VehicleModel[] { return VEHICLE_MODELS.filter((m) => m.brandId === brandId); }
-export function getVersionsByModel(modelId: string): VehicleVersion[] { return VEHICLE_VERSIONS.filter((v) => v.modelId === modelId); }
-
-// ── Categorias ────────────────────────────────────────────────────────────
 export const SEARCH_CATEGORIES: SearchCategory[] = [
   { id: 'cat_1', name: 'Motor e Transmissão', backendKey: 'Motor e Transmissão', emoji: '⚙️', subtitle: 'Potência, torque e câmbio', estimatedFields: 19 },
   { id: 'cat_2', name: 'Rodas', backendKey: 'Rodas', emoji: '🛞', subtitle: 'Aro, pneus ATR, RunFlat', estimatedFields: 8 },
@@ -65,7 +52,6 @@ export const CATEGORY_ICONS: Record<string, string> = {
   'tracao 4x4 e off-road': '⛰️', 'outros': '📦',
 };
 
-// ── Fontes ────────────────────────────────────────────────────────────────
 export const SEARCH_SOURCES: SearchSource[] = [
   { id: 'official', name: 'Site oficial da montadora', icon: '🏭', maxFields: 12, type: 'official' },
   { id: 'reviews', name: 'Quatro Rodas / iCarros', icon: '📰', maxFields: 8, type: 'review' },
@@ -73,143 +59,3 @@ export const SEARCH_SOURCES: SearchSource[] = [
   { id: 'presskit', name: 'Press kits e PDFs', icon: '📄', maxFields: 4, type: 'estimated' },
 ];
 
-// Adicione isto no final do seu arquivo src/mocks/vehicleData.ts
-
-export const MOCK_RESULT_SOURCES = [
-  { 
-    id: 'src_official', 
-    icon: '🏭', 
-    name: 'Site e Press Kit Oficial', 
-    url: 'Base da Montadora', 
-    type: 'Oficial', 
-    sourceTypeKey: 'OFFICIAL' 
-  },
-  { 
-    id: 'src_review', 
-    icon: '📰', 
-    name: 'Reviews e Portais Automotivos', 
-    url: 'Múltiplos veículos de imprensa', 
-    type: 'Review', 
-    sourceTypeKey: 'REVIEW' 
-  },
-  { 
-    id: 'src_estimated', 
-    icon: '📊', 
-    name: 'Estimativas Baseadas em I.A', 
-    url: 'Mapeamento preditivo', 
-    type: 'Estimado', 
-    sourceTypeKey: 'ESTIMATED' 
-  },
-];
-
-// ── Respostas Completas do Back-end ───────────────────────────────────────
-export const MOCK_VEHICLE_RESPONSES: Record<string, any> = {
-  'ranger_limited': {
-    "vehicle": { "brand": "Ford", "model": "Ranger", "trim": "Limited 3.0L V6", "year": 2026 },
-    "specs": {
-      "Motor e Transmissão": {
-        "Potência": { "value": "250 cv", "source": "OFFICIAL" },
-        "Torque": { "value": "61,2 kgfm", "source": "OFFICIAL" },
-        "Cilindrada": { "value": "2993 cm³", "source": "OFFICIAL" },
-        "Quantidade de marchas": { "value": "10 marchas", "source": "OFFICIAL" },
-        "Motor Diesel": { "value": "Sim", "source": "OFFICIAL" },
-        "Transmissão Automática": { "value": "Sim", "source": "OFFICIAL" },
-        "Tecnologia turbo": { "value": "Sim", "source": "OFFICIAL" },
-        "Paddle Shift": { "value": "Não", "source": "REVIEW" },
-        "E-Shifter (Manopla eletrônica)": { "value": "Sim", "source": "OFFICIAL" },
-        "Economia de Combustível": { "value": "8,9 km/l (Cidade) / 10,2 km/l (Estrada)", "source": "REVIEW" }
-      },
-      "Rodas": {
-        "Aro (polegadas)": { "value": "20 polegadas", "source": "OFFICIAL" },
-        "Rodas de Liga leve": { "value": "Sim", "source": "OFFICIAL" },
-        "Pneus ATR (50/50)": { "value": "Não", "source": "REVIEW" },
-        "Full Size Spare tires (same as vehicle base)": { "value": "Sim", "source": "OFFICIAL" },
-        "Pneus RunFlat": { "value": "Não", "source": "ESTIMATED" }
-      },
-      "Conectividade": {
-        "Wi-Fi Hotspot": { "value": "Sim", "source": "OFFICIAL" },
-        "Digital assistant (Assistente Digital Inteligente)": { "value": "Sim (Sync 4)", "source": "OFFICIAL" },
-        "Destravamento/Travamento das portas": { "value": "Sim (Via app FordPass)", "source": "OFFICIAL" },
-        "Localização do Veículo": { "value": "Sim", "source": "OFFICIAL" },
-        "Atualizaçãos OTA": { "value": "Sim", "source": "OFFICIAL" },
-        "Online Traffic (Sync 4)": { "value": "Sim", "source": "OFFICIAL" }
-      },
-      "Entretenimento e Multimídia": {
-        "Multimedia polegadas": { "value": "12 polegadas", "source": "OFFICIAL" },
-        "Conexão Wireless Android Auto & Car Play": { "value": "Sim", "source": "OFFICIAL" },
-        "Bluetooth": { "value": "Sim", "source": "OFFICIAL" },
-        "Camera 360 graus": { "value": "Sim", "source": "OFFICIAL" },
-        "Subwoofer + Amplificador": { "value": "Sim (Bang & Olufsen Premium)", "source": "REVIEW" },
-        "USB (unidade)": { "value": "4 unidades", "source": "OFFICIAL" }
-      },
-      "Ar-condicionado": {
-        "Ar Condicionado Automático e Digital": { "value": "Sim", "source": "OFFICIAL" },
-        "Ar condicionado de duas zonas": { "value": "Sim", "source": "OFFICIAL" },
-        "Ar Condicionado com saída p/ 2ª fileira ou mais de bancos": { "value": "Sim", "source": "OFFICIAL" }
-      },
-      "Segurança": {
-        "Airbag (cada)": { "value": "7 Airbags", "source": "OFFICIAL" },
-        "Sensor de Pressão dos pneus (TPMS)": { "value": "Sim", "source": "OFFICIAL" },
-        "Sistema Anti Capotamento (Rollover Stability Control)": { "value": "Sim", "source": "OFFICIAL" },
-        "Controle de descida": { "value": "Sim", "source": "OFFICIAL" },
-        "Controle de reboque": { "value": "Sim", "source": "OFFICIAL" }
-      },
-      "Tecnologia Avançada": {
-        "Piloto Automático Adaptativo + Stop & GO": { "value": "Sim", "source": "OFFICIAL" },
-        "Sistema de Permanência na Faixa (alerta e assistência)": { "value": "Sim", "source": "OFFICIAL" },
-        "AEB (Autonomous Emergency Brake)": { "value": "Sim", "source": "OFFICIAL" },
-        "Sistema de monitoramento de ponto-cego (BLIS)": { "value": "Sim", "source": "OFFICIAL" },
-        "Sistema de Estacionamento Automático - 2.0 (Supervisionado)": { "value": "Sim", "source": "REVIEW" }
-      },
-      "Travamento e Vidros": {
-        "Trava Elétrica das portas": { "value": "Sim", "source": "OFFICIAL" },
-        "Sistema de um toque para cima/baixo + Anti-esmagamento": { "value": "Sim (Todas as portas)", "source": "OFFICIAL" },
-        "Sistema Keyless Entry com Botão de Partida (PEPS)": { "value": "Sim", "source": "OFFICIAL" },
-        "Tampa do Porta-malas automatico": { "value": "Não se aplica", "source": "OFFICIAL" }
-      },
-      "Acabamento Interno": {
-        "Bancos revestidos em couro": { "value": "Sim (Premium Preto)", "source": "OFFICIAL" },
-        "Volante revestido em couro/vynil": { "value": "Sim", "source": "OFFICIAL" },
-        "Painel Soft Touch": { "value": "Sim", "source": "REVIEW" }
-      },
-      "Teto Solar": {
-        "Teto Solar Elétrico": { "value": "Não disponível", "source": "OFFICIAL" },
-        "Teto Solar Panorâmico": { "value": "Não disponível", "source": "OFFICIAL" }
-      },
-      "Bancos": {
-        "Banco posições Elétrico": { "value": "Sim (8 posições para motorista)", "source": "OFFICIAL" },
-        "Banco Traseiro Bipartido (60/40)": { "value": "Sim", "source": "OFFICIAL" },
-        "Bancos Aquecimento (Frontal)": { "value": "Não", "source": "ESTIMATED" }
-      },
-      "Iluminação": {
-        "Faróis Full LED": { "value": "Sim (Matrix LED)", "source": "OFFICIAL" },
-        "LED Day time running lights": { "value": "Sim", "source": "OFFICIAL" },
-        "Farol alto automático": { "value": "Sim", "source": "OFFICIAL" },
-        "Iluminação Ambiente Multi-Color": { "value": "Sim", "source": "REVIEW" }
-      },
-      "Tração 4x4 e Off-Road": {
-        "Tração 4x4 (high/low)": { "value": "Sim (4x4 Avançada com modo Automático)", "source": "OFFICIAL" },
-        "Diferencial traseiro blocante": { "value": "Sim (Eletrônico)", "source": "OFFICIAL" },
-        "Terrain Management System": { "value": "Sim (6 modos de condução)", "source": "OFFICIAL" },
-        "Protetor de Caçamba": { "value": "Sim", "source": "OFFICIAL" },
-        "Peito de aço": { "value": "Sim (Protetor inferior reforçado)", "source": "OFFICIAL" }
-      },
-      "Outros": {
-        "Anos de garantia": { "value": "5 anos sem limite de quilometragem", "source": "OFFICIAL" },
-        "Engate de Reboque 3.500 kg": { "value": "Sim (Capacidade máxima de tração)", "source": "OFFICIAL" },
-        "Tomada 110V (cada)": { "value": "Sim (Na caçamba e cabine)", "source": "OFFICIAL" }
-      }
-    }
-  },
-  'cc_xre_24': {
-    "vehicle": { "brand": "Toyota", "model": "Corolla Cross", "trim": "XRE", "year": 2024 },
-    "specs": {
-      "Motor e Transmissão": {
-        "Potência": { "value": "177 cv", "source": "OFFICIAL" },
-        "Transmissão Automática": { "value": "CVT 10 Marchas", "source": "REVIEW" }
-      },
-      "Rodas": { "Aro (polegadas)": { "value": "18 polegadas", "source": "OFFICIAL" } },
-      "Segurança": { "Airbag (cada)": { "value": "7 Airbags", "source": "OFFICIAL" } }
-    }
-  }
-};

@@ -1,7 +1,12 @@
 // src/mocks/homeData.ts
-// Dados mockados para a HomeScreen enquanto o back-end não está pronto.
-// Substitua as chamadas por hooks reais (ex: useQuery) quando os endpoints estiverem disponíveis.
-// Contrato de API esperado: GET /api/v1/searches?userId=:id&limit=10
+//
+// Após a integração:
+//   - MOCK_USER foi removido — o perfil vem agora do AuthContext (AuthResponse.user).
+//   - MOCK_RECENT_SEARCHES foi removido — substituído por GET /v1/searches (paginado).
+//   - MOCK_USER_STATS continua mockado porque o backend ainda não expõe /users/me/stats.
+//
+// O tipo `RecentSearch` é mantido como contrato visual do componente SearchCard,
+// alimentado por um adapter no HomeScreen (SearchSummary -> RecentSearch).
 
 export type SourceTag = 'Oficial' | 'Review' | 'Estimado';
 
@@ -13,8 +18,8 @@ export interface RecentSearch {
   categories: string[];
   totalFields: number;
   sourceTag: SourceTag;
-  createdAt: string; // ISO 8601
-  relativeTime: string; // exibição humana — será gerado dinamicamente na integração real
+  createdAt: string;
+  relativeTime: string;
   status: 'completed' | 'in_progress' | 'error';
 }
 
@@ -27,59 +32,8 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
-// ── MOCK: Perfil do usuário logado ─────────────────────────────────────────
-// Endpoint futuro: GET /api/v1/users/me
-export const MOCK_USER: UserProfile = {
-  id: 'usr_001',
-  name: 'Ana Silva',
-  initials: 'A',
-  email: 'ana.silva@ford.com.br',
-  company: 'Ford Brasil',
-};
-
-// ── MOCK: Pesquisas recentes ──────────────────────────────────────────────
-// Endpoint futuro: GET /api/v1/searches?userId=usr_001&limit=10
-export const MOCK_RECENT_SEARCHES: RecentSearch[] = [
-  {
-    id: 'srch_001',
-    brand: 'Toyota',
-    model: 'Corolla Cross',
-    version: 'XRE',
-    categories: ['Motor', 'Segurança', 'Conectividade'],
-    totalFields: 24,
-    sourceTag: 'Oficial',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    relativeTime: 'há 2 horas',
-    status: 'completed',
-  },
-  {
-    id: 'srch_002',
-    brand: 'Hyundai',
-    model: 'Creta',
-    version: 'N Line',
-    categories: ['Motor', 'Dimensões', 'Conforto'],
-    totalFields: 18,
-    sourceTag: 'Review',
-    createdAt: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
-    relativeTime: 'ontem, 16h30',
-    status: 'completed',
-  },
-  {
-    id: 'srch_003',
-    brand: 'Volkswagen',
-    model: 'Taos',
-    version: 'Highline',
-    categories: ['Motor', 'Dimensões', 'Segurança'],
-    totalFields: 21,
-    sourceTag: 'Oficial',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    relativeTime: 'ontem, 10h15',
-    status: 'completed',
-  }
-];
-
-// ── MOCK: Estatísticas rápidas do usuário ─────────────────────────────────
-// Endpoint futuro: GET /api/v1/users/me/stats
+// Stats rápidas exibidos no header da HomeScreen.
+// TODO: substituir por GET /v1/users/me/stats quando disponível.
 export const MOCK_USER_STATS = {
   totalSearches: 12,
   totalFields: 247,

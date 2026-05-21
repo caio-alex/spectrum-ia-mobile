@@ -4,10 +4,9 @@ import { StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.primary },
   header: {
-    height: '40%',
+    height: '30%',
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 40,
+    alignItems: 'center'
   },
    logoIcon: {
     width: 60,
@@ -32,7 +31,7 @@ export const styles = StyleSheet.create({
     width: '100%',     // preenche o container pai
     height: '100%',    // preenche o container pai
   },
-  subTitle: { color: theme.colors.secondary, opacity: 0.8, fontSize: 12 },
+  subTitle: { color: theme.colors.secondary, opacity: 0.8, fontSize: 16 },
   formCard: {
     flex: 1,
     backgroundColor: '#fff',
@@ -40,15 +39,15 @@ export const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
   },
-  formTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20 },
+  formTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
   inputGroup: { marginBottom: 16 },
-  label: { fontSize: 10, fontWeight: '700', color: theme.colors.textLight, marginBottom: 6 },
+  label: { fontSize: 14, fontWeight: '700', color: theme.colors.textLight, marginBottom: 6 },
   input: {
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
+    fontSize: 16,
   },
   button: {
     backgroundColor: theme.colors.primary,
@@ -57,12 +56,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 20 },
   forgotPassword: {
     color: theme.colors.primary,
     textAlign: 'center',
     marginTop: 16,
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: 16,
   }
 });

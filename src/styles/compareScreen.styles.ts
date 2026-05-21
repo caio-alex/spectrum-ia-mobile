@@ -287,7 +287,7 @@ export const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
-  // ── Category filter (sticky) ───────────────────────────────────────────
+  // ── Category filter ───────────────────────────────────────────
   categoryFilter: {
     backgroundColor: theme.colors.background,
     borderBottomWidth: 1,
@@ -317,6 +317,57 @@ export const styles = StyleSheet.create({
   },
   categoryChipTextActive: {
     color: '#fff',
+  },
+
+  // ── Sticky Vehicle Header ─────────────────────────────────────────────
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1.5,
+    borderBottomColor: theme.colors.border,
+    // Sombra leve para destacar que o elemento está fixado por cima
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+    zIndex: 20,
+  },
+  stickyHeaderLabelPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  stickyHeaderTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.textLight,
+    letterSpacing: 0.5,
+  },
+  stickyHeaderColumns: {
+    flexDirection: 'row',
+    gap: 4,
+    flex: 1.8,
+    justifyContent: 'flex-end',
+  },
+  stickyHeaderCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  stickyHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  stickyHeaderSubtext: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.text,
+    textAlign: 'right',
+    marginTop: 1,
   },
 
   // ── Spec sections ──────────────────────────────────────────────────────

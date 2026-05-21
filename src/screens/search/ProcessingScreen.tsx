@@ -1,100 +1,222 @@
 // src/screens/search/ProcessingScreen.tsx
 import React, { useEffect, useRef, useCallback, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, StatusBar, Animated, TouchableOpacity, ScrollView, Easing } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  StatusBar,
+  Animated,
+  TouchableOpacity,
+  ScrollView,
+  Easing,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { SearchSource, SEARCH_SOURCES } from '../../mocks/vehicleData';
 import { styles } from '../../styles/processingScreen.styles';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons/faMagnifyingGlass';
+import { useCreateSearch } from '../../hooks/useSearches';
+import { streamSearchProgress, ProgressStreamHandle } from '../../services/sse';
+import type { SearchProgressEvent } from '../../types/api';
 
 type SourceStatus = 'pending' | 'running' | 'done' | 'warning';
-interface SourceState extends SearchSource { status: SourceStatus; fieldsFound: number; message: string; }
+interface SourceState extends SearchSource {
+  status: SourceStatus;
+  fieldsFound: number;
+  message: string;
+}
 
-// Tipos atualizados para receber os identificadores únicos do back-end
 interface RouteParams {
   brand: string;
   model: string;
-  version: string;
-  year?: string;
-  versionId?: string; // <-- ID do carro
+  trim: string;
+  year: number;
   categories: string[];
-  categoryKeys?: string[]; // <-- Chaves das categorias
+  categoryKeys: string[];
 }
 
-interface Props { navigation?: any; route?: { params?: RouteParams }; }
+interface Props {
+  navigation?: any;
+  route?: { params?: RouteParams };
+}
 
-const PROGRESSION_TIMELINE = [
-  { delay: 800,  sourceIndex: 0, status: 'running' as SourceStatus, fields: 0,  msg: 'Acessando site oficial...' },
-  { delay: 2200, sourceIndex: 0, status: 'done'    as SourceStatus, fields: 12, msg: '12 especificações encontradas' },
-  { delay: 2600, sourceIndex: 1, status: 'running' as SourceStatus, fields: 0,  msg: 'Buscando reviews...' },
-  { delay: 4000, sourceIndex: 1, status: 'done'    as SourceStatus, fields: 8,  msg: '8 campos adicionais' },
-  { delay: 4400, sourceIndex: 2, status: 'running' as SourceStatus, fields: 0,  msg: 'Analisando transcrições...' },
-  { delay: 6200, sourceIndex: 2, status: 'done'    as SourceStatus, fields: 6,  msg: '6 dados de vídeos' },
-  { delay: 6600, sourceIndex: 3, status: 'running' as SourceStatus, fields: 0,  msg: 'Processando documentos...' },
-  { delay: 8000, sourceIndex: 3, status: 'done'    as SourceStatus, fields: 4,  msg: '4 especificações extras' },
-];
-
-const TOTAL_DURATION = 8500;
+const initialSources = (): SourceState[] =>
+  SEARCH_SOURCES.map((src) => ({
+    ...src,
+    status: 'pending',
+    fieldsFound: 0,
+    message: 'Aguardando...',
+  }));
 
 export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
-  const params = route?.params ?? {
-    brand: 'Ford', model: 'Ranger', version: 'Limited 3.0 V6', year: '2026', versionId: 'ranger_limited',
-    categories: ['Motor e Transmissão', 'Segurança'], categoryKeys: ['Motor e Transmissão', 'Segurança'],
-  };
+  const params = route?.params;
 
-  const vehicleLabel = `${params.brand} ${params.model} ${params.version}`;
-  
-  const [sources, setSources] = useState<SourceState[]>(SEARCH_SOURCES.map((src) => ({ ...src, status: 'pending', fieldsFound: 0, message: 'Aguardando...' })));
+  const vehicleLabel = params ? `${params.brand} ${params.model} ${params.trim}` : '';
+
+  const [sources, setSources] = useState<SourceState[]>(initialSources);
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('Enfileirando pesquisa...');
+  const [totalFields, setTotalFields] = useState(0);
   const [isDone, setIsDone] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [searchId, setSearchId] = useState<string | null>(null);
 
-  const spinAnim = useRef(new Animated.Value(0)).current;
+  const createSearch = useCreateSearch();
+  const triggeredRef = useRef(false);
+  const streamRef = useRef<ProgressStreamHandle | null>(null);
+
   const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnims = useRef(SEARCH_SOURCES.map(() => new Animated.Value(0.4))).current;
   const doneScaleAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => { Animated.spring(fadeInAnim, { toValue: 1, tension: 60, friction: 10, useNativeDriver: true }).start(); }, []);
-  useEffect(() => { Animated.loop(Animated.timing(spinAnim, { toValue: 1, duration: 2800, easing: Easing.linear, useNativeDriver: true })).start(); }, [spinAnim]);
-  useEffect(() => { Animated.timing(progressAnim, { toValue: 1, duration: TOTAL_DURATION, easing: Easing.out(Easing.quad), useNativeDriver: false }).start(); }, []);
-
-  const startPulse = useCallback((index: number) => {
-    Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnims[index], { toValue: 1, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(pulseAnims[index], { toValue: 0.4, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-    ])).start();
-  }, [pulseAnims]);
+  useEffect(() => {
+    Animated.spring(fadeInAnim, {
+      toValue: 1,
+      tension: 60,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeInAnim]);
 
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    PROGRESSION_TIMELINE.forEach(({ delay, sourceIndex, status, fields, msg }) => {
-      timers.push(setTimeout(() => {
-        if (status === 'running') startPulse(sourceIndex);
-        setSources((prev) => prev.map((src, i) => i === sourceIndex ? { ...src, status, fieldsFound: fields || src.fieldsFound, message: msg } : src));
-      }, delay));
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 350,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnim]);
+
+  const advanceNextPending = useCallback((sourceLabel: string | null, status: SourceStatus, fields: number) => {
+    setSources((prev) => {
+      const idx = prev.findIndex((s) => s.status === 'pending' || s.status === 'running');
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = {
+        ...next[idx],
+        status,
+        fieldsFound: fields > 0 ? fields : next[idx].fieldsFound,
+        message:
+          sourceLabel ??
+          (status === 'done'
+            ? 'Concluído'
+            : status === 'warning'
+              ? 'Falhou — segue adiante'
+              : 'Em andamento...'),
+      };
+      return next;
     });
-
-    timers.push(setTimeout(() => {
-      setIsDone(true);
-      Animated.spring(doneScaleAnim, { toValue: 1, tension: 65, friction: 9, useNativeDriver: true }).start();
-
-      setTimeout(() => {
-        // ESSENCIAL: Repassando o params inteiro (que agora possui versionId e categoryKeys)
-        navigation?.replace?.('Result', { ...params });
-      }, 1400);
-    }, TOTAL_DURATION));
-
-    return () => timers.forEach(clearTimeout);
   }, []);
 
-  const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
-  const doneFields = sources.reduce((s, src) => s + src.fieldsFound, 0);
+  const handleEvent = useCallback(
+    (ev: SearchProgressEvent) => {
+      if (ev.progressPercent != null) {
+        setProgress(Math.min(1, Math.max(0, ev.progressPercent / 100)));
+      }
+      if (ev.message) setStatusMessage(ev.message);
+      if (ev.fieldsExtracted != null) {
+        setTotalFields((prev) => Math.max(prev, ev.fieldsExtracted ?? 0));
+      }
+
+      if (ev.phase === 'SOURCE_PROGRESS' && ev.sourceStatus) {
+        if (ev.sourceStatus === 'consultando') {
+          advanceNextPending(ev.source, 'running', ev.fieldsExtracted ?? 0);
+        } else if (ev.sourceStatus === 'concluida') {
+          advanceNextPending(ev.source, 'done', ev.fieldsExtracted ?? 0);
+        } else if (ev.sourceStatus === 'falhou') {
+          advanceNextPending(ev.source, 'warning', ev.fieldsExtracted ?? 0);
+        }
+      }
+
+      if (ev.phase === 'COMPLETED') {
+        setIsDone(true);
+        setProgress(1);
+        Animated.spring(doneScaleAnim, {
+          toValue: 1,
+          tension: 65,
+          friction: 9,
+          useNativeDriver: true,
+        }).start();
+        streamRef.current?.close();
+        streamRef.current = null;
+        setTimeout(() => {
+          navigation?.replace?.('Result', { searchId: ev.searchId });
+        }, 1200);
+      }
+
+      if (ev.phase === 'FAILED') {
+        setErrorMsg(ev.message ?? 'Falha ao processar a pesquisa.');
+        streamRef.current?.close();
+        streamRef.current = null;
+      }
+    },
+    [advanceNextPending, doneScaleAnim, navigation],
+  );
+
+  useEffect(() => {
+    if (!params || triggeredRef.current) return;
+    triggeredRef.current = true;
+
+    createSearch.mutate(
+      {
+        brand: params.brand,
+        model: params.model,
+        trim: params.trim || undefined,
+        year: params.year,
+        categories: params.categoryKeys,
+      },
+      {
+        onSuccess: (data) => {
+          setSearchId(data.searchId);
+          setStatusMessage('Pesquisa enfileirada. Aguardando início...');
+        },
+        onError: () => {
+          setErrorMsg('Não foi possível iniciar a pesquisa. Tente novamente.');
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!searchId) return;
+    const handle = streamSearchProgress(searchId, {
+      onEvent: handleEvent,
+      onError: () => {
+        /* connection hiccups são esperados — o servidor reabre */
+      },
+    });
+    streamRef.current = handle;
+    return () => {
+      handle.close();
+      streamRef.current = null;
+    };
+  }, [searchId, handleEvent]);
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.close();
+      streamRef.current = null;
+    };
+  }, []);
+
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+  const doneFields = totalFields || sources.reduce((s, src) => s + src.fieldsFound, 0);
+
+  if (!params) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{isDone ? 'Concluído ✓' : 'Pesquisando...'}</Text>
+        <Text style={styles.headerTitle}>
+          {errorMsg ? 'Falha' : isDone ? 'Concluído ✓' : 'Pesquisando...'}
+        </Text>
         <Text style={styles.headerSub}>{vehicleLabel}</Text>
       </View>
       <Animated.View style={[styles.body, { opacity: fadeInAnim }]}>
@@ -105,31 +227,48 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
                 <Text style={styles.spinnerDoneEmoji}>✓</Text>
               </Animated.View>
             ) : (
-              <View style={styles.spinnerContainer}>
-                <Animated.View style={[styles.spinnerRing, { transform: [{ rotate: spin }] }]}><View style={styles.spinnerRingDot} /></Animated.View>
-                <View style={styles.spinnerInner}><Text style={styles.spinnerInnerEmoji}><FontAwesomeIcon icon={faMagnifyingGlass} style={{color: "#001881"}} /></Text></View>
-              </View>
+              <SpinnerRing />
             )}
-            <Text style={styles.spinnerTitle}>{isDone ? 'Pesquisa concluída!' : 'IA em ação'}</Text>
-            <Text style={styles.spinnerSubtitle}>{isDone ? `${doneFields} campos encontrados em ${sources.filter((s) => s.status === 'done').length} fontes` : 'Consultando múltiplas fontes'}</Text>
-            <View style={styles.progressBar}><Animated.View style={[styles.progressFill, { width: progressWidth }]} /></View>
-            
+            <Text style={styles.spinnerTitle}>
+              {errorMsg ? 'Erro na pesquisa' : isDone ? 'Pesquisa concluída!' : 'IA em ação'}
+            </Text>
+            <Text style={styles.spinnerSubtitle}>
+              {errorMsg
+                ? 'Não foi possível concluir a pesquisa, tente novamente mais tarde.'
+                : isDone
+                  ? `${doneFields} campos encontrados`
+                  : statusMessage}
+            </Text>
+            <View style={styles.progressBar}>
+              <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+            </View>
+
             <View style={styles.categoriesRow}>
               {params.categories.map((cat) => (
-                <View key={cat} style={styles.categoryPill}><Text style={styles.categoryPillText}>{cat}</Text></View>
+                <View key={cat} style={styles.categoryPill}>
+                  <Text style={styles.categoryPillText}>{cat}</Text>
+                </View>
               ))}
             </View>
           </View>
-          {/* <View style={styles.divider} />
-          <Text style={styles.sourcesTitle}>Fontes consultadas</Text>
-          <View style={styles.sourcesList}>
-            {sources.map((src, i) => (
-              <SourceItem key={src.id} source={src} pulseAnim={pulseAnims[i]} />
-            ))}
-          </View> */}
-          {!isDone && (
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation?.goBack()} activeOpacity={0.7}>
+
+          {!isDone && !errorMsg && (
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => navigation?.goBack()}
+              activeOpacity={0.7}
+            >
               <Text style={styles.cancelText}>Cancelar pesquisa</Text>
+            </TouchableOpacity>
+          )}
+
+          {errorMsg && (
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => navigation?.goBack()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelText}>Voltar</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
@@ -138,54 +277,101 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
-interface SourceItemProps { source: SourceState; pulseAnim: Animated.Value; }
-const SourceItem: React.FC<SourceItemProps> = ({ source, pulseAnim }) => {
-  const isRunning = source.status === 'running';
-  const isDone = source.status === 'done';
-  const isPending = source.status === 'pending';
+/**
+ * Anel girando.
+ *
+ * Em RN Web o sistema Animated roda sempre na thread JS (useNativeDriver é
+ * ignorado), então qualquer re-render do pai gera travadinhas visíveis.
+ * Solução: em Web a animação é CSS pura (compositor do browser, totalmente
+ * fora da thread JS); em nativo mantemos Animated.loop com useNativeDriver.
+ *
+ * O componente é envolvido em React.memo — sem props, ele nunca re-renderiza
+ * quando o pai recebe um evento SSE.
+ */
+const SPIN_KEYFRAMES_ID = 'spectrum-spin-keyframes';
+
+const ensureSpinKeyframes = () => {
+  if (Platform.OS !== 'web') return;
+  if (typeof document === 'undefined') return;
+  if (document.getElementById(SPIN_KEYFRAMES_ID)) return;
+  const styleEl = document.createElement('style');
+  styleEl.id = SPIN_KEYFRAMES_ID;
+  styleEl.textContent = '@keyframes spectrum-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+  document.head.appendChild(styleEl);
+};
+
+const SpinnerRingNative: React.FC = () => {
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 2800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [spinAnim]);
+
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
-    <View style={[sourceStyles.item, isRunning && sourceStyles.itemRunning, isPending && sourceStyles.itemPending]}>
-      <View style={[sourceStyles.iconBox, isDone && sourceStyles.iconBoxDone, isRunning && sourceStyles.iconBoxRunning]}>
-        <Text style={sourceStyles.icon}>{source.icon}</Text>
-      </View>
-      <View style={sourceStyles.content}>
-        <Text style={[sourceStyles.name, isRunning && sourceStyles.nameRunning, isPending && sourceStyles.namePending]} numberOfLines={1}>{source.name}</Text>
-        <Text style={[sourceStyles.message, isRunning && sourceStyles.messageRunning, isPending && sourceStyles.messagePending]} numberOfLines={1}>{source.message}</Text>
-      </View>
-      <View>
-        {isDone ? (
-          <View style={sourceStyles.badgeDone}><Text style={sourceStyles.badgeDoneText}>✓ OK</Text></View>
-        ) : isRunning ? (
-          <View style={sourceStyles.badgeRunning}>
-            <Animated.View style={[sourceStyles.pulseDot, { opacity: pulseAnim }]} />
-            <Text style={sourceStyles.badgeRunningText}>{source.fieldsFound || '...'}</Text>
-          </View>
-        ) : (
-          <View style={sourceStyles.badgePending}><Text style={sourceStyles.badgePendingText}>—</Text></View>
-        )}
-      </View>
+    <Animated.View style={[styles.spinnerRing, { transform: [{ rotate: spin }] }]}>
+      <View style={styles.spinnerRingDot} />
+    </Animated.View>
+  );
+};
+
+const SpinnerRingWeb: React.FC = () => {
+  useEffect(() => {
+    ensureSpinKeyframes();
+  }, []);
+
+  const webSpinStyle = {
+    animationName: 'spectrum-spin',
+    animationDuration: '2.8s',
+    animationTimingFunction: 'linear',
+    animationIterationCount: 'infinite',
+  } as unknown as object;
+
+  return (
+    <View style={[styles.spinnerRing, webSpinStyle]}>
+      <View style={styles.spinnerRingDot} />
     </View>
   );
 };
 
-const sourceStyles = StyleSheet.create({
-  item: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surface, borderRadius: 12, padding: 12, marginBottom: 8, gap: 10, borderWidth: 1, borderColor: 'transparent' },
-  itemRunning: { backgroundColor: 'rgba(131,192,255,0.1)', borderColor: theme.colors.secondary },
-  itemPending: { opacity: 0.45 },
-  iconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border, flexShrink: 0 },
-  iconBoxDone: { backgroundColor: theme.colors.successBg, borderColor: theme.colors.success },
-  iconBoxRunning: { backgroundColor: 'rgba(131,192,255,0.15)', borderColor: theme.colors.secondary },
-  icon: { fontSize: 16 }, content: { flex: 1, minWidth: 0 },
-  name: { fontSize: 12, fontWeight: '700', color: theme.colors.text, marginBottom: 1 },
-  nameRunning: { color: theme.colors.primary }, namePending: { color: theme.colors.textMuted },
-  message: { fontSize: 10, color: theme.colors.textLight },
-  messageRunning: { color: theme.colors.primary, opacity: 0.8 }, messagePending: { color: theme.colors.textMuted },
-  badgeDone: { backgroundColor: theme.colors.successBg, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3 },
-  badgeDoneText: { fontSize: 9, fontWeight: '700', color: theme.colors.success },
-  badgeRunning: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(131,192,255,0.2)', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3, gap: 4 },
-  pulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.primary },
-  badgeRunningText: { fontSize: 9, fontWeight: '700', color: theme.colors.primary },
-  badgePending: { backgroundColor: theme.colors.surface, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: theme.colors.border },
-  badgePendingText: { fontSize: 9, fontWeight: '700', color: theme.colors.textMuted },
+const SpinnerRing: React.FC = React.memo(() => {
+  const Ring = Platform.OS === 'web' ? SpinnerRingWeb : SpinnerRingNative;
+  return (
+    <View style={styles.spinnerContainer}>
+      <Ring />
+      <View style={styles.spinnerInner}>
+        <Text style={styles.spinnerInnerEmoji}>🔍</Text>
+      </View>
+    </View>
+  );
 });
+SpinnerRing.displayName = 'SpinnerRing';
+
+// (componentes auxiliares mantidos para uso futuro)
+const sourceStyles = StyleSheet.create({
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+});
+export { sourceStyles };
