@@ -283,23 +283,33 @@ export const ResultScreen = ({ navigation, route }: any) => {
         ? `${Math.round(Number(data.overallConfidence) * 100)}%`
         : '—';
 
+  const formatLatency = (ms: number | null | undefined): string => {
+    if (ms == null || Number.isNaN(ms)) return '—';
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    const totalSeconds = Math.round(ms / 1000);
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return seconds === 0 ? `${minutes}min` : `${minutes}min ${seconds}s`;
+  };
+
+  const latencyLabel = formatLatency(data.aiLatencyMs);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.backBtn}>←</Text></TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleGoHome}
+            activeOpacity={0.8}
+            accessibilityLabel="Voltar para a Home"
+          >
+            <Text style={styles.backBtn}>← Voltar para home</Text>
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Análise Spectrum IA</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.homeBtn}
-              onPress={handleGoHome}
-              activeOpacity={0.8}
-              accessibilityLabel="Voltar para a Home"
-            >
-              <Text style={styles.homeIcon}>🏠</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.pdfBtn} onPress={handleExport}>
               <Text style={styles.pdfIcon}>📄</Text>
             </TouchableOpacity>
@@ -319,7 +329,12 @@ export const ResultScreen = ({ navigation, route }: any) => {
         </View>
 
         <View style={styles.statsContainer}>
-          <StatsBar stats={[{ label: 'Acurácia Geral', value: confidencePct, emoji: '🧠' }]} />
+          <StatsBar
+            stats={[
+              { label: 'Acurácia Geral', value: confidencePct, emoji: '🧠' },
+              { label: 'Tempo de Pesquisa', value: latencyLabel, emoji: '⏱️' },
+            ]}
+          />
         </View>
       </View>
 
