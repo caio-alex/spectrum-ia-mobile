@@ -1,4 +1,4 @@
-const RAW_API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
+const RAW_API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://spectrum-ai-api.onrender.com';
 
 const NORMALIZED = RAW_API_URL.replace(/\/+$/, '');
 
