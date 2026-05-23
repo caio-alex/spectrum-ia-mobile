@@ -1,7 +1,8 @@
 // src/screens/result/ResultScreen.tsx
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Animated, StatusBar, LayoutAnimation, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { SpecTable } from '../../components/SpecTable';
 import { StatsBar } from '../../components/StatsBar';
 import { styles } from '../../styles/resultScreen.styles';
@@ -177,6 +178,19 @@ export const ResultScreen = ({ navigation, route }: any) => {
   const categoryKeys: string[] = route?.params?.categoryKeys ?? [];
 
   const { data, isLoading, error, refetch } = useSearchResult(searchId);
+  const queryClient = useQueryClient();
+
+  // Volta para a Home invalidando o cache da listagem para forçar refetch —
+  // sem isso, o React Query serviria a lista em cache e a nova pesquisa
+  // não apareceria sem pull-to-refresh manual.
+  const handleGoHome = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['searches', 'list'] });
+    if (navigation?.canGoBack?.()) {
+      navigation.popToTop();
+    } else {
+      navigation?.navigate('Home');
+    }
+  }, [queryClient, navigation]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -277,9 +291,19 @@ export const ResultScreen = ({ navigation, route }: any) => {
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.backBtn}>←</Text></TouchableOpacity>
           <Text style={styles.headerTitle}>Análise Spectrum IA</Text>
-          <TouchableOpacity style={styles.pdfBtn} onPress={handleExport}>
-            <Text style={styles.pdfIcon}>📄</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.homeBtn}
+              onPress={handleGoHome}
+              activeOpacity={0.8}
+              accessibilityLabel="Voltar para a Home"
+            >
+              <Text style={styles.homeIcon}>🏠</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.pdfBtn} onPress={handleExport}>
+              <Text style={styles.pdfIcon}>📄</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.vehicleInfo}>

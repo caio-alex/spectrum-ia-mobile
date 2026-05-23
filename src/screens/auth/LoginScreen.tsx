@@ -11,7 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '../../styles/login.styles';
 import { useAuth } from '../../contexts';
-import axios from 'axios';
+import { extractApiErrorMessage } from '../../services/errorHandler';
+import { LIMITS, validateEmail } from '../../services/validation';
 
 export const LoginScreen = ({ navigation }: any) => {
   const { signIn } = useAuth();
@@ -21,8 +22,17 @@ export const LoginScreen = ({ navigation }: any) => {
   const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      setError('Informe e-mail e senha.');
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+    if (!password) {
+      setError('Informe a senha.');
+      return;
+    }
+    if (password.length > LIMITS.PASSWORD_MAX) {
+      setError('Senha muito longa.');
       return;
     }
     setError(null);
@@ -31,7 +41,15 @@ export const LoginScreen = ({ navigation }: any) => {
       await signIn({ email: email.trim(), password });
       navigation.replace('MainTabs');
     } catch (err) {
-      setError(extractAuthError(err));
+      setError(
+        extractApiErrorMessage(err, {
+          fallback: 'Não foi possível entrar. Tente novamente.',
+          byStatus: {
+            401: 'E-mail ou senha inválidos.',
+            429: 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.',
+          },
+        }),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -72,6 +90,7 @@ export const LoginScreen = ({ navigation }: any) => {
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
+            maxLength={LIMITS.EMAIL_MAX}
             editable={!isSubmitting}
           />
         </View>
@@ -86,6 +105,7 @@ export const LoginScreen = ({ navigation }: any) => {
             placeholder="••••••••"
             autoCapitalize="none"
             autoComplete="password"
+            maxLength={LIMITS.PASSWORD_MAX}
             editable={!isSubmitting}
           />
         </View>
@@ -113,14 +133,3 @@ export const LoginScreen = ({ navigation }: any) => {
     </SafeAreaView>
   );
 };
-
-function extractAuthError(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    if (err.response?.status === 401) return 'E-mail ou senha inválidos.';
-    const data = err.response?.data as { message?: string } | undefined;
-    if (data?.message) return data.message;
-    if (err.code === 'ECONNABORTED') return 'Tempo esgotado. Verifique sua conexão.';
-    return 'Não foi possível entrar. Tente novamente.';
-  }
-  return 'Erro inesperado. Tente novamente.';
-}
