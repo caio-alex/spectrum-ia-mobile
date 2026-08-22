@@ -60,15 +60,6 @@ export const styles = StyleSheet.create({
     borderTopColor: theme.colors.secondary,
     borderRightColor: theme.colors.secondary,
   },
-  spinnerRingDot: {
-    position: 'absolute',
-    top: -3,
-    right: 14,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.primary,
-  },
   spinnerInner: {
     width: 56,
     height: 56,

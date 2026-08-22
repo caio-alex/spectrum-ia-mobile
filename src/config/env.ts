@@ -1,4 +1,4 @@
-const RAW_API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://spectrum-ai-api.onrender.com';
+const RAW_API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://spectrum-ai-api-rest-production.up.railway.app';
 const NORMALIZED = RAW_API_URL.replace(/\/+$/, '');
 
 // __DEV__ é fornecido pelo Metro/Hermes. Em build de produção é false.

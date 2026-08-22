@@ -18,6 +18,8 @@ import { styles } from '../../styles/processingScreen.styles';
 import { useCreateSearch } from '../../hooks/useSearches';
 import { streamSearchProgress, ProgressStreamHandle } from '../../services/sse';
 import type { SearchProgressEvent } from '../../types/api';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faHouse } from '@fortawesome/free-solid-svg-icons';
 
 type SourceStatus = 'pending' | 'running' | 'done' | 'warning';
 interface SourceState extends SearchSource {
@@ -323,7 +325,7 @@ const SpinnerRingNative: React.FC = () => {
 
   return (
     <Animated.View style={[styles.spinnerRing, { transform: [{ rotate: spin }] }]}>
-      <View style={styles.spinnerRingDot} />
+
     </Animated.View>
   );
 };
@@ -342,7 +344,7 @@ const SpinnerRingWeb: React.FC = () => {
 
   return (
     <View style={[styles.spinnerRing, webSpinStyle]}>
-      <View style={styles.spinnerRingDot} />
+      
     </View>
   );
 };

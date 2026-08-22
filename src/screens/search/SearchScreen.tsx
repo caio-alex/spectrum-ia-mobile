@@ -16,6 +16,8 @@ import { theme } from '../../styles/theme';
 import { fieldStyles, progressStyles, styles } from '../../styles/searchScreen.styles';
 import { useBrands, useModels, useTrims } from '../../hooks/useVehicles';
 import type { ModelInfo } from '../../types/api';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faHouse } from '@fortawesome/free-solid-svg-icons';
 
 type PickerMode = 'brand' | 'model' | 'year' | 'trim' | null;
 interface PickerOption {
@@ -172,9 +174,7 @@ export const SearchScreen = ({ navigation }: any) => {
           style={styles.backBtn}
           onPress={() => navigation?.goBack()}
           activeOpacity={0.7}
-        >
-          <Text style={styles.backArrow}>←</Text>
-          <Text style={styles.backLabel}>Voltar</Text>
+        ><FontAwesomeIcon icon={faHouse} size={24} style={{ color: '#fbfbfb' }} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nova pesquisa</Text>
       </View>

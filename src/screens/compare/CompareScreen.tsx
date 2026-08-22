@@ -29,7 +29,8 @@ import {
   COMPARE_SPEC_CATEGORIES,
   type CompareVehicle,
 } from '../../mocks/compareData';
-
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faHouse } from '@fortawesome/free-solid-svg-icons';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Props {
@@ -86,7 +87,7 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
       {/* ── HEADER ───────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack()} activeOpacity={0.7}>
-          <Text style={styles.backArrow}>←</Text>
+          <FontAwesomeIcon icon={faHouse} size={24} style={{ color: '#fbfbfb' }} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Comparar Veículos</Text>

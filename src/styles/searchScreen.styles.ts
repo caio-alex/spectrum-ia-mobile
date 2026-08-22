@@ -115,15 +115,15 @@ export const styles = StyleSheet.create({
   header: {
     backgroundColor: theme.colors.primary,
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 8 : 4,
+    paddingTop: 16,
     paddingBottom: 14,
-  },
-  backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-    alignSelf: 'flex-start',
+    gap: 16,
+  },
+  backBtn: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backArrow: {
     fontSize: 22,

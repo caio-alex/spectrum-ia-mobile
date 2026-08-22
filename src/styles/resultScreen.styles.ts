@@ -6,7 +6,7 @@ export const styles = StyleSheet.create({
   header: { padding: 15},
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  backBtn: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  backBtn: {  fontSize: 20,  },
   pdfBtn: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 },
   pdfIcon: { fontSize: 18 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -25,6 +25,8 @@ export const styles = StyleSheet.create({
   insightText: { flex: 1, fontSize: 12, color: theme.colors.text, lineHeight: 18 },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.colors.textLight, letterSpacing: 1, marginBottom: 15 },
   compareFab: { backgroundColor: theme.colors.primary, padding: 18, borderRadius: 16, alignItems: 'center', marginTop: 20 },
+  returnMenu: { backgroundColor: theme.colors.surface, padding: 18, borderRadius: 16, borderColor: theme.colors.border, borderWidth: 2, alignItems: 'center', marginTop: 20 },
+  returnMenuText: { color: theme.colors.text, fontWeight: '700' },
   compareFabText: { color: '#fff', fontWeight: '700' }
 });
 
@@ -159,4 +161,102 @@ export const sourceStyles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 17,
   },
+});
+
+// ── Modal de exportação (Baixar PDF / CSV) ──────────────────────────────────
+export const exportModalStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.border,
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 4,
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: theme.colors.textLight,
+    marginBottom: 18,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    marginBottom: 12,
+  },
+  optionDisabled: {
+    opacity: 0.5,
+  },
+  optionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  optionIcon: {
+    fontSize: 18,
+  },
+  optionTextBox: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  optionSubtitle: {
+    fontSize: 11,
+    color: theme.colors.textLight,
+    marginTop: 1,
+  },
+  cancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  cancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.textLight,
+  },
+   homeIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primaryAlpha15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });

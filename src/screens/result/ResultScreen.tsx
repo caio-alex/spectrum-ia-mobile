@@ -1,17 +1,128 @@
 // src/screens/result/ResultScreen.tsx
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Animated, StatusBar, LayoutAnimation, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Animated, StatusBar, LayoutAnimation, ActivityIndicator, Linking, Modal, PanResponder } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { SpecTable } from '../../components/SpecTable';
 import { StatsBar } from '../../components/StatsBar';
 import { styles } from '../../styles/resultScreen.styles';
 import { sourceStyles } from '../../styles/resultScreen.styles';
+import { exportModalStyles } from '../../styles/resultScreen.styles';
 import { theme } from '../../styles/theme';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faHouse } from '@fortawesome/free-solid-svg-icons';
 
 import { CATEGORY_ICONS } from '../../mocks/vehicleData';
 import { useSearchResult } from '../../hooks/useSearches';
-import { getExportUrl } from '../../services/searches';
+import { getExportUrl, ExportFormat } from '../../services/searches';
+
+// Distância (em px) que o sheet percorre ao entrar/sair de tela.
+const SHEET_OFFSET = 500;
+// Arrastando mais que isso para baixo (ou soltando com velocidade alta) fecha o modal.
+const DISMISS_DISTANCE = 120;
+const DISMISS_VELOCITY = 0.9;
+
+// ── MODAL: escolher formato de download (PDF ou CSV) ────────────────────────
+interface ExportModalProps {
+  visible: boolean;
+  isExporting: ExportFormat | null;
+  onClose: () => void;
+  onSelect: (format: ExportFormat) => void;
+}
+const ExportModal: React.FC<ExportModalProps> = ({ visible, isExporting, onClose, onSelect }) => {
+  // `mounted` mantém o <Modal> na árvore enquanto a animação de saída roda —
+  // se fechássemos direto no `visible`, o RN Modal some sem animar.
+  const [mounted, setMounted] = useState(visible);
+  const translateY = useRef(new Animated.Value(SHEET_OFFSET)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      translateY.setValue(SHEET_OFFSET);
+      Animated.timing(translateY, { toValue: 0, duration: 240, useNativeDriver: true }).start();
+    } else if (mounted) {
+      Animated.timing(translateY, { toValue: SHEET_OFFSET, duration: 200, useNativeDriver: true }).start(() => {
+        setMounted(false);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  const springBack = () => {
+    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      // Só assume o gesto quando é um arraste vertical para baixo — assim
+      // toques nos botões/opções continuam funcionando normalmente.
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_evt, gesture) =>
+        isExporting === null && gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      onPanResponderMove: (_evt, gesture) => {
+        if (gesture.dy > 0) translateY.setValue(gesture.dy);
+      },
+      onPanResponderRelease: (_evt, gesture) => {
+        if (gesture.dy > DISMISS_DISTANCE || gesture.vy > DISMISS_VELOCITY) {
+          onClose();
+        } else {
+          springBack();
+        }
+      },
+      onPanResponderTerminate: () => springBack(),
+    }),
+  ).current;
+
+  const options: { format: ExportFormat; icon: string; title: string; subtitle: string }[] = [
+    { format: 'pdf', icon: '📄', title: 'Baixar PDF', subtitle: 'Relatório formatado, pronto para leitura' },
+    { format: 'csv', icon: '📊', title: 'Baixar CSV', subtitle: 'Planilha com todos os campos extraídos' },
+  ];
+
+  return (
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+      <TouchableOpacity style={exportModalStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <Animated.View
+        style={[exportModalStyles.sheet, { transform: [{ translateY }] }]}
+      >
+        {/* Área de arraste: cobre a alça e o título, sem invadir a lista de opções */}
+        <View {...panResponder.panHandlers}>
+          <View style={exportModalStyles.handle} />
+          <Text style={exportModalStyles.title}>Exportar resultado</Text>
+          <Text style={exportModalStyles.subtitle}>Escolha o formato do arquivo para baixar</Text>
+        </View>
+
+        {options.map((opt) => {
+          const disabled = isExporting !== null;
+          return (
+            <TouchableOpacity
+              key={opt.format}
+              style={[exportModalStyles.option, disabled && exportModalStyles.optionDisabled]}
+              onPress={() => onSelect(opt.format)}
+              disabled={disabled}
+              activeOpacity={0.7}
+            >
+              <View style={exportModalStyles.optionIconBox}>
+                {isExporting === opt.format ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <Text style={exportModalStyles.optionIcon}>{opt.icon}</Text>
+                )}
+              </View>
+              <View style={exportModalStyles.optionTextBox}>
+                <Text style={exportModalStyles.optionTitle}>{opt.title}</Text>
+                <Text style={exportModalStyles.optionSubtitle}>{opt.subtitle}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+
+        <TouchableOpacity style={exportModalStyles.cancelBtn} onPress={onClose} disabled={isExporting !== null}>
+          <Text style={exportModalStyles.cancelText}>Cancelar</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </Modal>
+  );
+};
 
 // Na New Architecture do RN, LayoutAnimation já fica habilitado por padrão —
 // `UIManager.setLayoutAnimationEnabledExperimental` virou no-op e emite warning.
@@ -206,16 +317,20 @@ export const ResultScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const handleExport = async () => {
-    if (!searchId) return;
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [isExporting, setIsExporting] = useState<ExportFormat | null>(null);
+
+  const handleExport = async (format: ExportFormat) => {
+    if (!searchId || isExporting) return;
+    setIsExporting(format);
     try {
-      const { downloadUrl } = await getExportUrl(searchId);
-      const fullUrl = downloadUrl.startsWith('http')
-        ? downloadUrl
-        : downloadUrl;
-      await Linking.openURL(fullUrl);
+      const { downloadUrl } = await getExportUrl(searchId, format);
+      await Linking.openURL(downloadUrl);
+      setExportModalVisible(false);
     } catch {
       /* silenciar — botão é opcional */
+    } finally {
+      setIsExporting(null);
     }
   };
 
@@ -306,12 +421,16 @@ export const ResultScreen = ({ navigation, route }: any) => {
             activeOpacity={0.8}
             accessibilityLabel="Voltar para a Home"
           >
-            <Text style={styles.backBtn}>← Voltar para home</Text>
+            <FontAwesomeIcon icon={faHouse} size={24} style={{ color: '#fbfbfb' }} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Análise Spectrum IA</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.pdfBtn} onPress={handleExport}>
-              <Text style={styles.pdfIcon}>📄</Text>
+            <TouchableOpacity
+              style={styles.pdfBtn}
+              onPress={() => setExportModalVisible(true)}
+              accessibilityLabel="Baixar resultado"
+            >
+              <Text style={styles.pdfIcon}>⬇️</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -389,8 +508,22 @@ export const ResultScreen = ({ navigation, route }: any) => {
             <Text style={styles.compareFabText}>Comparar Ficha Técnica</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+  style={styles.returnMenu}
+  onPress={handleGoHome}
+>
+  <Text style={styles.returnMenuText}>Voltar ao Início</Text>
+</TouchableOpacity>
+
         </ScrollView>
       </Animated.View>
+
+      <ExportModal
+        visible={exportModalVisible}
+        isExporting={isExporting}
+        onClose={() => setExportModalVisible(false)}
+        onSelect={handleExport}
+      />
     </SafeAreaView>
   );
 };

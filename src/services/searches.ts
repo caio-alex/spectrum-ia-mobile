@@ -36,7 +36,14 @@ export interface ExportResponse {
   expiresAt: string;
 }
 
-export async function getExportUrl(searchId: string): Promise<ExportResponse> {
-  const { data } = await api.get<ExportResponse>(`/searches/${searchId}/export`);
+export type ExportFormat = 'pdf' | 'csv';
+
+export async function getExportUrl(
+  searchId: string,
+  format: ExportFormat = 'pdf',
+): Promise<ExportResponse> {
+  const { data } = await api.get<ExportResponse>(`/searches/${searchId}/export`, {
+    params: { format },
+  });
   return data;
 }
