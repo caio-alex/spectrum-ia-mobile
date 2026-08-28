@@ -11,6 +11,8 @@ import { ProcessingScreen } from '../screens/search/ProcessingScreen';
 import { ResultScreen } from '../screens/result/ResultScreen';
 import { FieldDetailScreen } from '../screens/result/FieldDetailScreen';
 import { CompareScreen } from '../screens/compare/CompareScreen';
+import { SessionsScreen } from '../screens/sessions/SessionsScreen';
+import { SessionDetailScreen } from '../screens/sessions/SessionDetailScreen';
 import { useAuth } from '../contexts';
 import { theme } from '../styles/theme';
 
@@ -40,6 +42,8 @@ export const RootNavigation = () => {
         <>
           <Stack.Screen name="MainTabs" component={HomeScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="Sessions" component={SessionsScreen} />
+          <Stack.Screen name="SessionDetail" component={SessionDetailScreen} />
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="Categories" component={CategoriesScreen} />
           <Stack.Screen name="Processing" component={ProcessingScreen} />

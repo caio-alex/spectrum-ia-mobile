@@ -1,13 +1,17 @@
 // src/screens/home/HomeScreen.tsx
 //
 // TELA 02 — HOME
-// Cabeçalho Spectrum AI, stats rápidas, pesquisas recentes,
+// Cabeçalho Spectrum AI, stats rápidas, seletor de sessão, pesquisas recentes,
 // FAB "Comparar veículos" e bottom nav.
 //
 // Dados:
 //   - Perfil do usuário: vem do AuthContext (preenchido no login).
 //   - Pesquisas recentes: vêm de GET /v1/searches (paginado).
+//   - Sessões: GET /v1/sessions, via SessionPickerSheet.
 //   - Stats rápidas: ainda mockadas (backend não expõe /users/me/stats).
+//
+// Toda pesquisa precisa estar vinculada a uma sessão, então "Nova pesquisa"
+// só fica ativo depois que uma sessão é escolhida (ou criada) aqui.
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -16,30 +20,23 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Alert,
   ActivityIndicator,
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQueries } from '@tanstack/react-query';
 import { theme } from '../../styles/theme';
 import { SearchCard } from '../../components/SearchCard';
 import { StatsBar } from '../../components/StatsBar';
+import { SelectField } from '../../components/SelectField';
+import { SessionPickerSheet } from '../../components/SessionPickerSheet';
+import { BottomNav, useBottomNavHandler } from '../../components/BottomNav';
 import { useAuth } from '../../contexts';
 import { useRecentSearches } from '../../hooks/useSearches';
-import { getSearchResult } from '../../services/searches';
+import { useSearchCards } from '../../hooks/useSearchCards';
+import { formatDate } from '../../utils/date';
 import { MOCK_USER_STATS, type RecentSearch } from '../../mocks/homeData';
 import { styles, fabIconStyles } from '../../styles/homeScreen.styles';
-import type { SearchSummary } from '../../types/api';
-
-const NAV_ITEMS = [
-  { icon: '🏠', label: 'Home',     key: 'home'     },
-  { icon: '🔍', label: 'Pesquisa', key: 'search'   },
-  { icon: '📁', label: 'Sessões',  key: 'sessions' },
-  { icon: '👤', label: 'Perfil',   key: 'profile'  },
-] as const;
-
-type NavKey = typeof NAV_ITEMS[number]['key'];
+import type { SessionResponse } from '../../services/sessions';
 
 interface Props {
   navigation?: any;
@@ -53,62 +50,13 @@ const initialsFromName = (name: string): string => {
   return ((parts[0]?.[0] ?? '') + (parts[parts.length - 1]?.[0] ?? '')).toUpperCase();
 };
 
-const relativeTime = (iso: string | null): string => {
-  if (!iso) return '—';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '—';
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return 'agora';
-  if (minutes < 60) return `há ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `há ${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `há ${days} d`;
-  return date.toLocaleDateString();
-};
-
-const mapStatus = (status: SearchSummary['status']): RecentSearch['status'] => {
-  if (status === 'COMPLETED') return 'completed';
-  if (status === 'FAILED') return 'error';
-  return 'in_progress';
-};
-
-/**
- * Conta recursivamente os campos folha do JSON de specs.
- * Ignora a chave `sources` — mesma lógica do backend (SearchProcessor#countLeafFields).
- */
-const countLeafFields = (node: unknown): number => {
-  if (node == null) return 0;
-  if (typeof node !== 'object') return 1;
-  if (Array.isArray(node)) {
-    return node.reduce<number>((sum, item) => sum + countLeafFields(item), 0);
-  }
-  let count = 0;
-  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
-    if (key === 'sources') continue;
-    count += countLeafFields(value);
-  }
-  return count;
-};
-
-const summaryToCard = (item: SearchSummary, totalFields: number): RecentSearch => ({
-  id: item.searchId,
-  brand: item.vehicle?.brand ?? '',
-  model: item.vehicle?.model ?? '',
-  version: item.vehicle?.trim ?? '',
-  categories: [],
-  totalFields,
-  sourceTag: 'Oficial',
-  createdAt: item.completedAt ?? new Date().toISOString(),
-  relativeTime: relativeTime(item.completedAt),
-  status: mapStatus(item.status),
-});
-
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const [activeNav, setActiveNav] = useState<NavKey>('home');
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
+  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
+
   const recentSearchesQuery = useRecentSearches({ page: 0, size: 10 });
+  const handleNavPress = useBottomNavHandler(navigation);
 
   const displayName = user?.name ?? 'usuário';
   const firstName = displayName.split(' ')[0] ?? displayName;
@@ -119,40 +67,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     () => (recentSearchesQuery.data?.content ?? []).filter((s) => s.status !== 'FAILED'),
     [recentSearchesQuery.data],
   );
-
-  // Para cada pesquisa concluída, busca o /result para contar campos reais.
-  // SearchSummary não traz `specs`, então essa segunda chamada é necessária —
-  // staleTime longo + cache do React Query mitigam o custo de N requests.
-  const completedSummaries = useMemo(
-    () => visibleSummaries.filter((s) => s.status === 'COMPLETED'),
-    [visibleSummaries],
-  );
-
-  const resultQueries = useQueries({
-    queries: completedSummaries.map((s) => ({
-      queryKey: ['searches', 'result', s.searchId] as const,
-      queryFn: () => getSearchResult(s.searchId),
-      staleTime: 1000 * 60 * 60,
-    })),
-  });
-
-  const fieldCountById = useMemo(() => {
-    const map: Record<string, number> = {};
-    resultQueries.forEach((q, i) => {
-      const summary = completedSummaries[i];
-      if (q.data?.specs && summary) {
-        map[summary.searchId] = countLeafFields(q.data.specs);
-      }
-    });
-    return map;
-    // resultQueries é recriado a cada render — comparamos pelos data.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completedSummaries, resultQueries.map((q) => q.data).join('|')]);
-
-  const cards = useMemo(
-    () => visibleSummaries.map((s) => summaryToCard(s, fieldCountById[s.searchId] ?? 0)),
-    [visibleSummaries, fieldCountById],
-  );
+  const cards = useSearchCards(visibleSummaries);
 
   const handleSearchPress = useCallback(
     (item: RecentSearch) => {
@@ -165,22 +80,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     navigation?.navigate('Compare');
   }, [navigation]);
 
-  const handleNavPress = useCallback(
-    (key: NavKey) => {
-      setActiveNav(key);
-      if (key === 'profile') {
-        Alert.alert('Sair', 'Deseja encerrar a sessão?', [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Sair', style: 'destructive', onPress: () => void signOut() },
-        ]);
-        return;
-      }
-      if (key !== 'home') {
-        Alert.alert('Em breve', `A aba "${key}" será implementada nas próximas sprints.`);
-      }
-    },
-    [signOut],
-  );
+  const handleSelectSession = useCallback((selected: SessionResponse) => {
+    setSession(selected);
+    setPickerVisible(false);
+  }, []);
+
+  const handleNewSearch = useCallback(() => {
+    if (!session) return;
+    navigation?.navigate('Search', { sessionId: session.id, sessionName: session.name });
+  }, [navigation, session]);
 
   const stats = [
     { label: 'Pesquisas', value: MOCK_USER_STATS.totalSearches, emoji: '🔍' },
@@ -221,19 +129,37 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       >
         <StatsBar stats={stats} />
 
+        <SelectField
+          label="Sessão"
+          placeholder="Selecione ou crie uma sessão"
+          value={session?.name}
+          subValue={session ? `Criada em ${formatDate(session.createdAt)}` : undefined}
+          filled={!!session}
+          onPress={() => setPickerVisible(true)}
+        />
+
         <TouchableOpacity
-          style={styles.newSearchBtn}
-          onPress={() => navigation?.navigate('Search')}
-          activeOpacity={0.85}
+          style={[styles.newSearchBtn, !session && styles.newSearchBtnDisabled]}
+          onPress={handleNewSearch}
+          activeOpacity={session ? 0.85 : 1}
+          disabled={!session}
         >
-          <Text style={styles.newSearchPlus}>+</Text>
-          <Text style={styles.newSearchLabel}>Nova pesquisa</Text>
+          <Text style={[styles.newSearchPlus, !session && styles.newSearchLabelDisabled]}>+</Text>
+          <Text style={[styles.newSearchLabel, !session && styles.newSearchLabelDisabled]}>
+            Nova pesquisa
+          </Text>
         </TouchableOpacity>
+
+        {!session && (
+          <Text style={styles.newSearchHint}>
+            Escolha uma sessão acima para iniciar uma pesquisa.
+          </Text>
+        )}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionLabel}>Pesquisas recentes</Text>
-          <TouchableOpacity onPress={() => handleNavPress('sessions')}>
-            <Text style={styles.sectionAction}>Ver todas →</Text>
+          <TouchableOpacity onPress={() => navigation?.navigate('Sessions')}>
+            <Text style={styles.sectionAction}>Ver sessões →</Text>
           </TouchableOpacity>
         </View>
 
@@ -253,7 +179,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
               paddingVertical: 16,
             }}
           >
-            Nenhuma pesquisa ainda. Toque em "Nova pesquisa" para começar.
+            Nenhuma pesquisa ainda. Selecione uma sessão e toque em "Nova pesquisa".
           </Text>
         ) : (
           cards.map((item) => (
@@ -264,7 +190,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      <View style={styles.fabWrapper} pointerEvents="box-none">
+      <View style={styles.fabWrapper}>
         <View style={styles.fabTooltipRow}>
           <View style={styles.fabTooltip}>
             <Text style={styles.fabTooltipText}>Comparar veículos</Text>
@@ -279,23 +205,14 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
-      <View style={styles.bottomNav}>
-        {NAV_ITEMS.map(({ icon, label, key }) => {
-          const isActive = activeNav === key;
-          return (
-            <TouchableOpacity
-              key={key}
-              style={styles.navItem}
-              onPress={() => handleNavPress(key)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.navIcon, isActive && styles.navIconActive]}>{icon}</Text>
-              <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{label}</Text>
-              {isActive && <View style={styles.navIndicator} />}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <BottomNav active="home" onPress={handleNavPress} />
+
+      <SessionPickerSheet
+        visible={pickerVisible}
+        selectedId={session?.id ?? null}
+        onClose={() => setPickerVisible(false)}
+        onSelect={handleSelectSession}
+      />
     </SafeAreaView>
   );
 };

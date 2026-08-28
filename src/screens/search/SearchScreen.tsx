@@ -13,9 +13,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
-import { fieldStyles, progressStyles, styles } from '../../styles/searchScreen.styles';
+import { progressStyles, styles } from '../../styles/searchScreen.styles';
 import { useBrands, useModels, useTrims } from '../../hooks/useVehicles';
+import { SelectField } from '../../components/SelectField';
+import { SessionPickerSheet } from '../../components/SessionPickerSheet';
+import { formatDate } from '../../utils/date';
 import type { ModelInfo } from '../../types/api';
+import type { SessionResponse } from '../../services/sessions';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faHouse } from '@fortawesome/free-solid-svg-icons';
 
@@ -26,12 +30,31 @@ interface PickerOption {
   subtitle?: string;
 }
 
-export const SearchScreen = ({ navigation }: any) => {
+/**
+ * Params opcionais: chegam preenchidos quando a pesquisa parte da Home (com a
+ * sessão já escolhida) ou de dentro de uma sessão. Vindo da aba "Pesquisa" da
+ * bottom nav não há sessão ainda — por isso o campo é editável aqui também.
+ */
+interface RouteParams {
+  sessionId?: string;
+  sessionName?: string;
+}
+
+export const SearchScreen = ({ navigation, route }: any) => {
+  const params: RouteParams | undefined = route?.params;
+
+  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [sessionPickerVisible, setSessionPickerVisible] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedTrim, setSelectedTrim] = useState<string | null>(null);
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
+
+  // Identidade da sessão ativa: o objeto completo quando escolhido no sheet,
+  // senão o par id/nome recebido por navegação.
+  const sessionId = session?.id ?? params?.sessionId ?? null;
+  const sessionName = session?.name ?? params?.sessionName ?? null;
 
   const brandsQuery = useBrands();
   const modelsQuery = useModels(selectedBrand);
@@ -110,7 +133,13 @@ export const SearchScreen = ({ navigation }: any) => {
     [closePicker],
   );
 
-  const canContinue = !!selectedBrand && !!selectedModel && !!selectedYear && !!selectedTrim;
+  const handleSelectSession = useCallback((selected: SessionResponse) => {
+    setSession(selected);
+    setSessionPickerVisible(false);
+  }, []);
+
+  const canContinue =
+    !!sessionId && !!selectedBrand && !!selectedModel && !!selectedYear && !!selectedTrim;
 
   const handleContinue = useCallback(() => {
     if (!canContinue) return;
@@ -119,8 +148,19 @@ export const SearchScreen = ({ navigation }: any) => {
       model: selectedModel!.name,
       trim: selectedTrim,
       year: selectedYear,
+      sessionId,
+      sessionName,
     });
-  }, [canContinue, selectedBrand, selectedModel, selectedTrim, selectedYear, navigation]);
+  }, [
+    canContinue,
+    selectedBrand,
+    selectedModel,
+    selectedTrim,
+    selectedYear,
+    sessionId,
+    sessionName,
+    navigation,
+  ]);
 
   const sortedYears = useMemo(() => {
     if (!selectedModel) return [];
@@ -191,6 +231,14 @@ export const SearchScreen = ({ navigation }: any) => {
         <StepProgress steps={['Veículo', 'Categorias', 'Pesquisando', 'Resultado']} current={0} />
 
         <SelectField
+          label="SESSÃO"
+          placeholder="Selecione ou crie uma sessão"
+          value={sessionName ?? undefined}
+          subValue={session ? `Criada em ${formatDate(session.createdAt)}` : undefined}
+          filled={!!sessionId}
+          onPress={() => setSessionPickerVisible(true)}
+        />
+        <SelectField
           label="MARCA"
           placeholder="Selecione a marca"
           value={selectedBrand ?? undefined}
@@ -252,7 +300,7 @@ export const SearchScreen = ({ navigation }: any) => {
           disabled={!canContinue}
         >
           <Text style={[styles.continueBtnText, !canContinue && styles.continueBtnTextDisabled]}>
-            Continuar →
+            {!sessionId ? 'Selecione uma sessão' : 'Continuar →'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -337,60 +385,16 @@ export const SearchScreen = ({ navigation }: any) => {
           )}
         </Animated.View>
       </Modal>
+
+      <SessionPickerSheet
+        visible={sessionPickerVisible}
+        selectedId={sessionId}
+        onClose={() => setSessionPickerVisible(false)}
+        onSelect={handleSelectSession}
+      />
     </SafeAreaView>
   );
 };
-
-interface SelectFieldProps {
-  label: string;
-  placeholder: string;
-  value?: string;
-  subValue?: string;
-  filled: boolean;
-  disabled: boolean;
-  onPress: () => void;
-}
-const SelectField: React.FC<SelectFieldProps> = ({
-  label,
-  placeholder,
-  value,
-  subValue,
-  filled,
-  disabled,
-  onPress,
-}) => (
-  <View style={fieldStyles.wrap}>
-    <Text style={fieldStyles.label}>{label}</Text>
-    <TouchableOpacity
-      style={[
-        fieldStyles.field,
-        filled && fieldStyles.fieldFilled,
-        disabled && fieldStyles.fieldDisabled,
-      ]}
-      onPress={onPress}
-      activeOpacity={disabled ? 1 : 0.75}
-    >
-      <View style={fieldStyles.left}>
-        <Text
-          style={[
-            fieldStyles.value,
-            !value && fieldStyles.placeholder,
-            disabled && fieldStyles.disabledText,
-          ]}
-          numberOfLines={1}
-        >
-          {value || placeholder}
-        </Text>
-        {subValue ? (
-          <Text style={fieldStyles.subValue} numberOfLines={1}>
-            {subValue}
-          </Text>
-        ) : null}
-      </View>
-      <Text style={[fieldStyles.chevron, disabled && { opacity: 0.3 }]}>▾</Text>
-    </TouchableOpacity>
-  </View>
-);
 
 interface StepProgressProps {
   steps: string[];

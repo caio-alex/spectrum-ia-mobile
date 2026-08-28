@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { theme } from '../../styles/theme';
 import { SearchSource, SEARCH_SOURCES } from '../../mocks/vehicleData';
 import { styles } from '../../styles/processingScreen.styles';
@@ -35,6 +36,9 @@ interface RouteParams {
   year: number;
   categories: string[];
   categoryKeys: string[];
+  /** Sessão a que esta pesquisa pertence. */
+  sessionId: string;
+  sessionName?: string;
 }
 
 interface Props {
@@ -64,6 +68,7 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
   const [searchId, setSearchId] = useState<string | null>(null);
 
   const createSearch = useCreateSearch();
+  const queryClient = useQueryClient();
   const triggeredRef = useRef(false);
   const streamRef = useRef<ProgressStreamHandle | null>(null);
 
@@ -133,6 +138,9 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
       if (ev.phase === 'COMPLETED') {
         setIsDone(true);
         setProgress(1);
+        // Histórico da Home e da sessão precisam refletir a pesquisa nova.
+        void queryClient.invalidateQueries({ queryKey: ['searches', 'list'] });
+        void queryClient.invalidateQueries({ queryKey: ['searches', 'count'] });
         Animated.spring(doneScaleAnim, {
           toValue: 1,
           tension: 65,
@@ -152,7 +160,7 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
         streamRef.current = null;
       }
     },
-    [advanceNextPending, doneScaleAnim, navigation],
+    [advanceNextPending, doneScaleAnim, navigation, queryClient],
   );
 
   useEffect(() => {
@@ -166,6 +174,7 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
         trim: params.trim || undefined,
         year: params.year,
         categories: params.categoryKeys,
+        sessionId: params.sessionId,
       },
       {
         onSuccess: (data) => {
@@ -220,6 +229,9 @@ export const ProcessingScreen: React.FC<Props> = ({ navigation, route }) => {
           {errorMsg ? 'Falha' : isDone ? 'Concluído ✓' : 'Pesquisando...'}
         </Text>
         <Text style={styles.headerSub}>{vehicleLabel}</Text>
+        {params.sessionName ? (
+          <Text style={styles.headerSub}>📁 {params.sessionName}</Text>
+        ) : null}
       </View>
       <Animated.View style={[styles.body, { opacity: fadeInAnim }]}>
         <ScrollView contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>

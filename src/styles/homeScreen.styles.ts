@@ -106,11 +106,11 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 20,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    boxShadow: '0px 6px 12px rgba(0, 24, 129, 0.35)',
+  },
+  newSearchBtnDisabled: {
+    backgroundColor: theme.colors.border,
+    boxShadow: 'none',
   },
   newSearchPlus: {
     color: '#fff',
@@ -123,6 +123,16 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.1,
+  },
+  newSearchLabelDisabled: {
+    color: theme.colors.textMuted,
+  },
+  newSearchHint: {
+    fontSize: 12,
+    color: theme.colors.textLight,
+    textAlign: 'center',
+    marginTop: -12,
+    marginBottom: 20,
   },
 
   // Seção
@@ -151,6 +161,8 @@ export const styles = StyleSheet.create({
     right: 16,
     bottom: 68, // acima da bottom nav (52px) + margem
     alignItems: 'flex-end',
+    // Deixa os toques passarem para o ScrollView atrás; só o FAB é clicável.
+    pointerEvents: 'box-none',
   },
   fabTooltipRow: {
     flexDirection: 'row',
@@ -164,11 +176,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
+    boxShadow: '0px 4px 10px rgba(0, 24, 129, 0.12)',
   },
   fabTooltipText: {
     fontSize: 12,
@@ -182,58 +190,8 @@ export const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-
-  // Bottom Nav
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    paddingBottom: Platform.OS === 'ios' ? 16 : 6,
-    paddingTop: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    paddingVertical: 4,
-  },
-  navIcon: {
-    fontSize: 20,
-    marginBottom: 2,
-    opacity: 0.45,
-  },
-  navIconActive: {
-    opacity: 1,
-  },
-  navLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.textLight,
-    letterSpacing: 0.1,
-  },
-  navLabelActive: {
-    color: theme.colors.primary,
-    fontWeight: '700',
-  },
-  navIndicator: {
-    position: 'absolute',
-    top: 0,
-    width: 20,
-    height: 2.5,
-    borderRadius: 2,
-    backgroundColor: theme.colors.primary,
+    boxShadow: '0px 6px 16px rgba(0, 24, 129, 0.55)',
   },
 });
+// A bottom nav vive em src/styles/bottomNav.styles.ts — compartilhada entre
+// Home e Sessões pelo componente <BottomNav />.
