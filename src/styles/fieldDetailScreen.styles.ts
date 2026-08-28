@@ -40,11 +40,7 @@ export const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
     paddingTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 20,
+    boxShadow: '0px -10px 20px rgba(0, 0, 0, 0.1)',
   },
   handle: {
     width: 40,

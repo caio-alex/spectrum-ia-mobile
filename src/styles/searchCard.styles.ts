@@ -11,11 +11,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
+    boxShadow: '0px 2px 6px rgba(0, 24, 129, 0.04)',
   },
   iconBox: {
     width: 38,

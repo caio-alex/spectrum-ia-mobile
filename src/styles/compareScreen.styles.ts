@@ -329,11 +329,7 @@ export const styles = StyleSheet.create({
     borderBottomWidth: 1.5,
     borderBottomColor: theme.colors.border,
     // Sombra leve para destacar que o elemento está fixado por cima
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    boxShadow: '0px 2px 2px rgba(0, 0, 0, 0.05)',
     zIndex: 20,
   },
   stickyHeaderLabelPlaceholder: {
