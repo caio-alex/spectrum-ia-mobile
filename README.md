@@ -20,6 +20,7 @@ O Spectrum AI Mobile é o cliente mobile que consome a API do Spectrum AI (`http
 - **Comparação de veículos** lado a lado, com detalhamento campo a campo.
 - **Tela de resultados** alimentada por Server-Sent Events (SSE) para acompanhamento em tempo real do processamento da IA.
 - **Histórico de sessões** persistido na API, com nome, data de criação e as pesquisas de cada sessão.
+- **Exportação de dados** em dois escopos: a ficha técnica de uma pesquisa (tela de resultados) ou o comparativo com todos os veículos da sessão em um único CSV (tela de detalhe da sessão). O PDF já aparece no menu, mas ainda não é gerado pelo backend.
 
 ## Stack tecnológica
 

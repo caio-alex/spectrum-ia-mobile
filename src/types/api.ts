@@ -120,6 +120,14 @@ export interface SearchProgressEvent {
   synthetic: boolean;
 }
 
+/** Formatos aceitos por GET /v1/searches/{id}/export e /v1/sessions/{id}/export. */
+export type ExportFormat = 'pdf' | 'csv';
+
+export interface ExportResponse {
+  downloadUrl: string;
+  expiresAt: string;
+}
+
 export interface ApiErrorPayload {
   status: number;
   code?: string;
