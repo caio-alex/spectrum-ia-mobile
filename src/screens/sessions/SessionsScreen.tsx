@@ -2,27 +2,27 @@
 //
 // ABA SESSÕES — histórico das sessões de análise do tenant.
 // Lista nome + data de criação (GET /v1/sessions) e permite criar novas
-// (POST /v1/sessions). Ao criar, navega direto para o detalhe, onde o
-// primeiro veículo pode ser adicionado.
+// (POST /v1/sessions). Ao criar, navega direto para o detalhe, onde o primeiro
+// veículo pode ser adicionado.
 
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueries } from '@tanstack/react-query';
 import { theme } from '../../styles/theme';
-import { styles } from '../../styles/sessionsScreen.styles';
 import { BottomNav, useBottomNavHandler } from '../../components/BottomNav';
 import { SessionCard } from '../../components/SessionCard';
 import { SessionPickerSheet } from '../../components/SessionPickerSheet';
+import {
+  BottomInset,
+  Button,
+  EmptyState,
+  ErrorState,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  SkeletonList,
+} from '../../components/ui';
 import { useSessions } from '../../hooks/useSessions';
 import { listSearches } from '../../services/searches';
 import { extractApiErrorMessage } from '../../services/errorHandler';
@@ -30,11 +30,7 @@ import type { SessionResponse } from '../../services/sessions';
 
 const PAGE_SIZE = 50;
 
-interface Props {
-  navigation?: any;
-}
-
-export const SessionsScreen: React.FC<Props> = ({ navigation }) => {
+export const SessionsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [createVisible, setCreateVisible] = useState(false);
 
   const sessionsQuery = useSessions({ page: 0, size: PAGE_SIZE });
@@ -93,22 +89,22 @@ export const SessionsScreen: React.FC<Props> = ({ navigation }) => {
     [openSession],
   );
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+  const total = sessionsQuery.data?.totalElements ?? 0;
 
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <Text style={styles.headerTitle}>Sessões</Text>
-        </View>
-        <Text style={styles.headerSubtitle}>
-          Agrupe suas pesquisas por análise competitiva
-        </Text>
-      </View>
+  return (
+    <Screen>
+      <ScreenHeader
+        eyebrow="Organize suas análises"
+        title="Sessões"
+        subtitle={
+          total > 0
+            ? `${total} ${total === 1 ? 'sessão registrada' : 'sessões registradas'}`
+            : 'Agrupe as pesquisas de uma mesma análise competitiva'
+        }
+      />
 
       <ScrollView
-        style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -119,37 +115,33 @@ export const SessionsScreen: React.FC<Props> = ({ navigation }) => {
           />
         }
       >
-        <TouchableOpacity
-          style={styles.primaryBtn}
+        <Button
+          label="Nova sessão"
+          icon="add"
+          size="lg"
           onPress={() => setCreateVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.primaryBtnPlus}>+</Text>
-          <Text style={styles.primaryBtnLabel}>Nova sessão</Text>
-        </TouchableOpacity>
+          style={{ marginBottom: theme.space[6] }}
+        />
 
-        <Text style={styles.sectionLabel}>Histórico de sessões</Text>
+        <SectionHeader title="Histórico" />
 
         {sessionsQuery.isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color={theme.colors.primary} />
-          </View>
+          <SkeletonList count={4} />
         ) : sessionsQuery.error ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateError}>
-              {extractApiErrorMessage(sessionsQuery.error, {
-                fallback: 'Não foi possível carregar as sessões.',
-              })}
-            </Text>
-          </View>
+          <ErrorState
+            description={extractApiErrorMessage(sessionsQuery.error, {
+              fallback: 'Não foi possível carregar as sessões.',
+            })}
+            onRetry={() => void sessionsQuery.refetch()}
+          />
         ) : sessions.length === 0 ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateEmoji}>📁</Text>
-            <Text style={styles.stateTitle}>Nenhuma sessão ainda</Text>
-            <Text style={styles.stateText}>
-              Crie uma sessão para organizar as pesquisas de uma mesma análise.
-            </Text>
-          </View>
+          <EmptyState
+            brandMark
+            title="Nenhuma sessão ainda"
+            description="Uma sessão agrupa as pesquisas de uma mesma análise — por exemplo, todos os concorrentes de um lançamento."
+            actionLabel="Criar primeira sessão"
+            onAction={() => setCreateVisible(true)}
+          />
         ) : (
           sessions.map((session) => (
             <SessionCard
@@ -160,6 +152,8 @@ export const SessionsScreen: React.FC<Props> = ({ navigation }) => {
             />
           ))
         )}
+
+        <BottomInset extra={theme.space[4]} />
       </ScrollView>
 
       <BottomNav active="sessions" onPress={handleNavPress} />
@@ -170,6 +164,13 @@ export const SessionsScreen: React.FC<Props> = ({ navigation }) => {
         onClose={() => setCreateVisible(false)}
         onSelect={handleCreated}
       />
-    </SafeAreaView>
+    </Screen>
   );
 };
+
+const styles = StyleSheet.create({
+  body: {
+    padding: theme.space[4],
+    paddingTop: theme.space[5],
+  },
+});

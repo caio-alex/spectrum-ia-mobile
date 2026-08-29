@@ -36,7 +36,6 @@ const summaryToCard = (item: SearchSummary, totalFields: number): RecentSearch =
   version: item.vehicle?.trim ?? '',
   categories: [],
   totalFields,
-  sourceTag: 'Oficial',
   createdAt: item.completedAt ?? new Date().toISOString(),
   relativeTime: relativeTime(item.completedAt),
   status: mapStatus(item.status),

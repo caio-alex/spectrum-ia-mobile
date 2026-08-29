@@ -1,18 +1,12 @@
 // src/screens/auth/LoginScreen.tsx
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Image,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { styles } from '../../styles/login.styles';
+import { View } from 'react-native';
 import { useAuth } from '../../contexts';
 import { extractApiErrorMessage } from '../../services/errorHandler';
 import { LIMITS, validateEmail } from '../../services/validation';
+import { theme } from '../../styles/theme';
+import { Button, FormError, PressableScale, TextField, Txt } from '../../components/ui';
+import { AuthLayout } from './AuthLayout';
 
 export const LoginScreen = ({ navigation }: any) => {
   const { signIn } = useAuth();
@@ -20,21 +14,25 @@ export const LoginScreen = ({ navigation }: any) => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Erros por campo aparecem embaixo do próprio campo; o erro do servidor
+  // (credencial inválida, rate limit) fica no bloco geral acima do botão.
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
   const handleLogin = async () => {
     const emailError = validateEmail(email);
-    if (emailError) {
-      setError(emailError);
+    const passwordError = !password
+      ? 'Informe a senha.'
+      : password.length > LIMITS.PASSWORD_MAX
+        ? 'Senha muito longa.'
+        : undefined;
+
+    if (emailError || passwordError) {
+      setFieldErrors({ email: emailError ?? undefined, password: passwordError });
+      setError(null);
       return;
     }
-    if (!password) {
-      setError('Informe a senha.');
-      return;
-    }
-    if (password.length > LIMITS.PASSWORD_MAX) {
-      setError('Senha muito longa.');
-      return;
-    }
+
+    setFieldErrors({});
     setError(null);
     setIsSubmitting(true);
     try {
@@ -57,80 +55,70 @@ export const LoginScreen = ({ navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.logoIcon}>
-          <Image
-            source={require('../../../assets/spectrum-logo-icone.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </View>
+    <AuthLayout title="Entrar na plataforma">
+      <TextField
+        label="E-mail corporativo"
+        icon="email"
+        value={email}
+        onChangeText={(v) => {
+          setEmail(v);
+          if (fieldErrors.email) setFieldErrors((p) => ({ ...p, email: undefined }));
+        }}
+        error={fieldErrors.email}
+        placeholder="exemplo@empresa.com"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        autoComplete="email"
+        maxLength={LIMITS.EMAIL_MAX}
+        editable={!isSubmitting}
+        returnKeyType="next"
+      />
 
-        <View style={styles.logoTextContainer}>
-          <Image
-            source={require('../../../assets/spectrum-logo-texto.png')}
-            style={styles.logoTextImage}
-            resizeMode="contain"
-          />
-        </View>
+      <TextField
+        label="Senha"
+        icon="lock"
+        revealable
+        value={password}
+        onChangeText={(v) => {
+          setPassword(v);
+          if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
+        }}
+        error={fieldErrors.password}
+        placeholder="••••••••"
+        autoCapitalize="none"
+        autoComplete="password"
+        maxLength={LIMITS.PASSWORD_MAX}
+        editable={!isSubmitting}
+        returnKeyType="go"
+        onSubmitEditing={() => void handleLogin()}
+      />
 
-        <Text style={styles.subTitle}>Análise competitiva automotiva</Text>
-      </View>
+      <FormError message={error} />
 
-      <View style={styles.formCard}>
-        <Text style={styles.formTitle}>Entrar na plataforma</Text>
+      <Button
+        label="Entrar"
+        size="lg"
+        onPress={() => void handleLogin()}
+        loading={isSubmitting}
+        icon="forward"
+        iconPosition="trailing"
+      />
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>E-MAIL CORPORATIVO</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="exemplo@empresa.com"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            maxLength={LIMITS.EMAIL_MAX}
-            editable={!isSubmitting}
-          />
-        </View>
+      <View style={{ height: theme.space[5] }} />
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>SENHA</Text>
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            autoCapitalize="none"
-            autoComplete="password"
-            maxLength={LIMITS.PASSWORD_MAX}
-            editable={!isSubmitting}
-          />
-        </View>
-
-        {error ? (
-          <Text style={{ color: '#c0392b', marginBottom: 12 }}>{error}</Text>
-        ) : null}
-
-        <TouchableOpacity
-          style={[styles.button, isSubmitting && { opacity: 0.6 }]}
-          onPress={handleLogin}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Entrar</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate('Register')} disabled={isSubmitting}>
-          <Text style={styles.forgotPassword}>Criar conta corporativa</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      <PressableScale
+        onPress={() => navigation.navigate('Register')}
+        disabled={isSubmitting}
+        scaleTo={0.97}
+        style={{ alignItems: 'center', paddingVertical: theme.space[2] }}
+      >
+        <Txt variant="caption" tone="muted">
+          Ainda não tem acesso?{' '}
+          <Txt variant="captionStrong" tone="accent">
+            Criar conta corporativa
+          </Txt>
+        </Txt>
+      </PressableScale>
+    </AuthLayout>
   );
 };

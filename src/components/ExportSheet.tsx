@@ -5,39 +5,36 @@
 //   - ResultScreen        → GET /v1/searches/{id}/export (uma pesquisa)
 //   - SessionDetailScreen → GET /v1/sessions/{id}/export (a sessão inteira)
 //
-// O componente não conhece os endpoints: só cuida da animação, do gesto de
-// arraste e do estado visual (carregando/erro) que a tela informa.
+// O componente não conhece os endpoints: só cuida do estado visual
+// (carregando / erro) que a tela informa. A animação e o gesto de arraste vêm
+// do <Sheet> compartilhado.
 
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Animated,
-  Modal,
-  PanResponder,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { theme } from '../styles/theme';
-import { styles } from '../styles/exportSheet.styles';
 import type { ExportFormat } from '../types/api';
-
-// Distância (em px) que o sheet percorre ao entrar/sair de tela.
-const SHEET_OFFSET = 500;
-// Arrastando mais que isso para baixo (ou soltando com velocidade alta) fecha o modal.
-const DISMISS_DISTANCE = 120;
-const DISMISS_VELOCITY = 0.9;
+import { Button, FormError, Icon, PressableScale, Sheet, Txt, type IconName } from './ui';
 
 export interface ExportOption {
   format: ExportFormat;
-  icon: string;
+  icon: IconName;
   title: string;
   subtitle: string;
 }
 
 const DEFAULT_OPTIONS: ExportOption[] = [
-  { format: 'pdf', icon: '📄', title: 'Baixar PDF', subtitle: 'Relatório formatado, pronto para leitura' },
-  { format: 'csv', icon: '📊', title: 'Baixar CSV', subtitle: 'Planilha com todos os campos extraídos' },
+  {
+    format: 'pdf',
+    icon: 'pdf',
+    title: 'Baixar PDF',
+    subtitle: 'Relatório formatado, pronto para leitura',
+  },
+  {
+    format: 'csv',
+    icon: 'csv',
+    title: 'Baixar CSV',
+    subtitle: 'Planilha com todos os campos extraídos',
+  },
 ];
 
 interface Props {
@@ -62,100 +59,77 @@ export const ExportSheet: React.FC<Props> = ({
   subtitle = 'Escolha o formato do arquivo para baixar',
   errorMessage = null,
   options = DEFAULT_OPTIONS,
-}) => {
-  // `mounted` mantém o <Modal> na árvore enquanto a animação de saída roda —
-  // se fechássemos direto no `visible`, o RN Modal some sem animar.
-  const [mounted, setMounted] = useState(visible);
-  const translateY = useRef(new Animated.Value(SHEET_OFFSET)).current;
+}) => (
+  <Sheet
+    visible={visible}
+    onClose={onClose}
+    title={title}
+    subtitle={subtitle}
+    locked={isExporting !== null}
+    maxHeightRatio={0.6}
+  >
+    <FormError message={errorMessage} />
 
-  useEffect(() => {
-    if (visible) {
-      setMounted(true);
-      translateY.setValue(SHEET_OFFSET);
-      Animated.timing(translateY, { toValue: 0, duration: 240, useNativeDriver: true }).start();
-    } else if (mounted) {
-      Animated.timing(translateY, { toValue: SHEET_OFFSET, duration: 200, useNativeDriver: true }).start(() => {
-        setMounted(false);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+    <View style={{ gap: theme.space[2] }}>
+      {options.map((opt) => {
+        const busy = isExporting === opt.format;
+        const disabled = isExporting !== null;
+        return (
+          <PressableScale
+            key={opt.format}
+            onPress={() => onSelect(opt.format)}
+            disabled={disabled}
+            scaleTo={0.985}
+            accessibilityRole="button"
+            accessibilityLabel={opt.title}
+            style={[styles.option, disabled && !busy && { opacity: 0.45 }]}
+          >
+            <View style={styles.optionIcon}>
+              {busy ? (
+                <ActivityIndicator size="small" color={theme.brand[600]} />
+              ) : (
+                <Icon name={opt.icon} size={16} color={theme.brand[700]} />
+              )}
+            </View>
+            <View style={{ flex: 1, gap: 1 }}>
+              <Txt variant="bodyStrong">{opt.title}</Txt>
+              <Txt variant="micro" tone="faint">
+                {busy ? 'Gerando arquivo…' : opt.subtitle}
+              </Txt>
+            </View>
+            {!busy ? <Icon name="download" size={13} color={theme.ink[300]} /> : null}
+          </PressableScale>
+        );
+      })}
+    </View>
 
-  const springBack = () => {
-    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
-  };
+    <Button
+      label="Cancelar"
+      variant="ghost"
+      onPress={onClose}
+      disabled={isExporting !== null}
+      style={{ marginTop: theme.space[3] }}
+    />
+  </Sheet>
+);
 
-  // `isExporting` é lido de um ref porque o PanResponder é criado uma única vez —
-  // sem isso o gesto continuaria fechando o sheet no meio de um download.
-  const exportingRef = useRef(isExporting);
-  exportingRef.current = isExporting;
-
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      // Só assume o gesto quando é um arraste vertical para baixo — assim
-      // toques nos botões/opções continuam funcionando normalmente.
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_evt, gesture) =>
-        exportingRef.current === null && gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-      onPanResponderMove: (_evt, gesture) => {
-        if (gesture.dy > 0) translateY.setValue(gesture.dy);
-      },
-      onPanResponderRelease: (_evt, gesture) => {
-        if (gesture.dy > DISMISS_DISTANCE || gesture.vy > DISMISS_VELOCITY) {
-          onCloseRef.current();
-        } else {
-          springBack();
-        }
-      },
-      onPanResponderTerminate: () => springBack(),
-    }),
-  ).current;
-
-  return (
-    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} />
-      <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
-        {/* Área de arraste: cobre a alça e o título, sem invadir a lista de opções */}
-        <View {...panResponder.panHandlers}>
-          <View style={styles.handle} />
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        </View>
-
-        {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
-
-        {options.map((opt) => {
-          const disabled = isExporting !== null;
-          return (
-            <TouchableOpacity
-              key={opt.format}
-              style={[styles.option, disabled && styles.optionDisabled]}
-              onPress={() => onSelect(opt.format)}
-              disabled={disabled}
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionIconBox}>
-                {isExporting === opt.format ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                ) : (
-                  <Text style={styles.optionIcon}>{opt.icon}</Text>
-                )}
-              </View>
-              <View style={styles.optionTextBox}>
-                <Text style={styles.optionTitle}>{opt.title}</Text>
-                <Text style={styles.optionSubtitle}>{opt.subtitle}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-
-        <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={isExporting !== null}>
-          <Text style={styles.cancelText}>Cancelar</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    </Modal>
-  );
-};
+const styles = StyleSheet.create({
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[3],
+    padding: theme.space[3],
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.borderSubtle,
+    backgroundColor: theme.colors.card,
+  },
+  optionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.brand[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

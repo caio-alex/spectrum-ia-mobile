@@ -1,29 +1,46 @@
 // src/screens/search/SearchScreen.tsx
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StatusBar,
-  ScrollView,
-  Modal,
-  FlatList,
-  Animated,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+//
+// TELA 03 — SELEÇÃO DO VEÍCULO (passo 1 de 4)
+//
+// Três mudanças de usabilidade em relação à versão anterior:
+//
+//   • O botão "Continuar" saiu do fim da rolagem e virou uma barra fixa. Com
+//     cinco campos, ele ficava fora da tela justamente quando ficava ativo.
+//   • O seletor (marca / modelo / ano / versão) ganhou busca. A lista de marcas
+//     passa de 40 itens; rolar até "Volkswagen" era o pedágio de toda pesquisa.
+//   • O cabeçalho mostra em que passo o usuário está, e o veículo escolhido vai
+//     se montando num cartão de conferência antes de avançar.
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
-import { progressStyles, styles } from '../../styles/searchScreen.styles';
 import { useBrands, useModels, useTrims } from '../../hooks/useVehicles';
-import { SelectField } from '../../components/SelectField';
 import { SessionPickerSheet } from '../../components/SessionPickerSheet';
 import { formatDate } from '../../utils/date';
 import type { ModelInfo } from '../../types/api';
 import type { SessionResponse } from '../../services/sessions';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faHouse } from '@fortawesome/free-solid-svg-icons';
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  EmptyState,
+  ErrorState,
+  Icon,
+  PressableScale,
+  Screen,
+  ScreenHeader,
+  SelectRow,
+  Sheet,
+  SkeletonList,
+  Stepper,
+  TextField,
+  Txt,
+} from '../../components/ui';
 
 type PickerMode = 'brand' | 'model' | 'year' | 'trim' | null;
+
 interface PickerOption {
   value: string;
   label: string;
@@ -42,6 +59,7 @@ interface RouteParams {
 
 export const SearchScreen = ({ navigation, route }: any) => {
   const params: RouteParams | undefined = route?.params;
+  const insets = useSafeAreaInsets();
 
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [sessionPickerVisible, setSessionPickerVisible] = useState(false);
@@ -50,6 +68,7 @@ export const SearchScreen = ({ navigation, route }: any) => {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedTrim, setSelectedTrim] = useState<string | null>(null);
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
+  const [query, setQuery] = useState('');
 
   // Identidade da sessão ativa: o objeto completo quando escolhido no sheet,
   // senão o par id/nome recebido por navegação.
@@ -60,78 +79,36 @@ export const SearchScreen = ({ navigation, route }: any) => {
   const modelsQuery = useModels(selectedBrand);
   const trimsQuery = useTrims(selectedBrand, selectedModel?.name ?? null, selectedYear);
 
-  const tipAnim = useRef(new Animated.Value(0)).current;
-  const sheetAnim = useRef(new Animated.Value(0)).current;
+  // A busca é por seletor: reabrir noutro campo não deve herdar o filtro antigo.
+  useEffect(() => setQuery(''), [pickerMode]);
 
-  useEffect(() => {
-    Animated.spring(tipAnim, {
-      toValue: 1,
-      delay: 300,
-      tension: 60,
-      friction: 10,
-      useNativeDriver: true,
-    }).start();
+  const closePicker = useCallback(() => setPickerMode(null), []);
+
+  const handleSelectBrand = useCallback((brand: string) => {
+    setSelectedBrand(brand);
+    setSelectedModel(null);
+    setSelectedYear(null);
+    setSelectedTrim(null);
+    setPickerMode(null);
   }, []);
 
-  const openPicker = useCallback(
-    (mode: PickerMode) => {
-      setPickerMode(mode);
-      sheetAnim.setValue(0);
-      Animated.spring(sheetAnim, {
-        toValue: 1,
-        tension: 70,
-        friction: 12,
-        useNativeDriver: true,
-      }).start();
-    },
-    [sheetAnim],
-  );
+  const handleSelectModel = useCallback((model: ModelInfo) => {
+    setSelectedModel(model);
+    setSelectedYear(null);
+    setSelectedTrim(null);
+    setPickerMode(null);
+  }, []);
 
-  const closePicker = useCallback(() => {
-    Animated.timing(sheetAnim, {
-      toValue: 0,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(() => setPickerMode(null));
-  }, [sheetAnim]);
+  const handleSelectYear = useCallback((year: number) => {
+    setSelectedYear(year);
+    setSelectedTrim(null);
+    setPickerMode(null);
+  }, []);
 
-  const handleSelectBrand = useCallback(
-    (brand: string) => {
-      setSelectedBrand(brand);
-      setSelectedModel(null);
-      setSelectedYear(null);
-      setSelectedTrim(null);
-      closePicker();
-    },
-    [closePicker],
-  );
-
-  const handleSelectModel = useCallback(
-    (model: ModelInfo) => {
-      setSelectedModel(model);
-      setSelectedYear(null);
-      setSelectedTrim(null);
-      closePicker();
-    },
-    [closePicker],
-  );
-
-  const handleSelectYear = useCallback(
-    (year: number) => {
-      setSelectedYear(year);
-      setSelectedTrim(null);
-      closePicker();
-    },
-    [closePicker],
-  );
-
-  const handleSelectTrim = useCallback(
-    (trim: string) => {
-      setSelectedTrim(trim);
-      closePicker();
-    },
-    [closePicker],
-  );
+  const handleSelectTrim = useCallback((trim: string) => {
+    setSelectedTrim(trim);
+    setPickerMode(null);
+  }, []);
 
   const handleSelectSession = useCallback((selected: SessionResponse) => {
     setSession(selected);
@@ -187,6 +164,12 @@ export const SearchScreen = ({ navigation, route }: any) => {
     return [];
   }, [pickerMode, brandsQuery.data, modelsQuery.data, sortedYears, trimsQuery.data]);
 
+  const filteredOptions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return pickerOptions;
+    return pickerOptions.filter((o) => o.label.toLowerCase().includes(q));
+  }, [pickerOptions, query]);
+
   const pickerTitle =
     pickerMode === 'brand'
       ? 'Selecione a marca'
@@ -206,185 +189,201 @@ export const SearchScreen = ({ navigation, route }: any) => {
     (pickerMode === 'model' && modelsQuery.error) ||
     (pickerMode === 'trim' && trimsQuery.error);
 
+  // Busca só compensa em lista longa; abaixo disso é um campo a mais na tela.
+  const searchable = pickerOptions.length > 8;
+
+  const isSelectedOption = (value: string) =>
+    (pickerMode === 'brand' && selectedBrand === value) ||
+    (pickerMode === 'model' && selectedModel?.name === value) ||
+    (pickerMode === 'year' && selectedYear === Number(value)) ||
+    (pickerMode === 'trim' && selectedTrim === value);
+
+  const pickOption = (value: string) => {
+    if (pickerMode === 'brand') return handleSelectBrand(value);
+    if (pickerMode === 'model') {
+      const model = (modelsQuery.data ?? []).find((m) => m.name === value);
+      if (model) handleSelectModel(model);
+      return;
+    }
+    if (pickerMode === 'year') return handleSelectYear(Number(value));
+    if (pickerMode === 'trim') return handleSelectTrim(value);
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation?.goBack()}
-          activeOpacity={0.7}
-        ><FontAwesomeIcon icon={faHouse} size={24} style={{ color: '#fbfbfb' }} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nova pesquisa</Text>
-      </View>
+    <Screen>
+      <ScreenHeader
+        onBack={() => navigation?.goBack()}
+        eyebrow="Passo 1 de 4"
+        title="Qual veículo?"
+        subtitle="A IA vai buscar a ficha técnica em várias fontes ao mesmo tempo."
+      >
+        <Stepper
+          onDark
+          steps={['Veículo', 'Categorias', 'Pesquisa', 'Resultado']}
+          current={0}
+          style={{ marginTop: theme.space[5] }}
+        />
+      </ScreenHeader>
 
       <ScrollView
-        style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.instruction}>
-          Informe o veículo que deseja pesquisar. A IA irá buscar dados em múltiplas fontes.
-        </Text>
-        <StepProgress steps={['Veículo', 'Categorias', 'Pesquisando', 'Resultado']} current={0} />
-
-        <SelectField
-          label="SESSÃO"
+        <SelectRow
+          label="Sessão"
+          icon="sessions"
           placeholder="Selecione ou crie uma sessão"
-          value={sessionName ?? undefined}
+          value={sessionName}
           subValue={session ? `Criada em ${formatDate(session.createdAt)}` : undefined}
-          filled={!!sessionId}
           onPress={() => setSessionPickerVisible(true)}
         />
-        <SelectField
-          label="MARCA"
+
+        <SelectRow
+          label="Marca"
+          icon="vehicle"
           placeholder="Selecione a marca"
-          value={selectedBrand ?? undefined}
-          filled={!!selectedBrand}
-          disabled={brandsQuery.isLoading}
-          onPress={() => openPicker('brand')}
+          value={selectedBrand}
+          loading={brandsQuery.isLoading}
+          onPress={() => setPickerMode('brand')}
         />
-        <SelectField
-          label="MODELO"
-          placeholder={selectedBrand ? 'Selecione o modelo' : 'Selecione a marca primeiro'}
+        <SelectRow
+          label="Modelo"
+          icon="fields"
+          placeholder={selectedBrand ? 'Selecione o modelo' : 'Escolha a marca primeiro'}
           value={selectedModel?.name}
-          filled={!!selectedModel}
           disabled={!selectedBrand}
-          onPress={() => selectedBrand && openPicker('model')}
+          onPress={() => setPickerMode('model')}
         />
-        <SelectField
-          label="ANO"
-          placeholder={selectedModel ? 'Selecione o ano' : 'Selecione o modelo primeiro'}
+        <SelectRow
+          label="Ano"
+          icon="date"
+          placeholder={selectedModel ? 'Selecione o ano' : 'Escolha o modelo primeiro'}
           value={selectedYear ? String(selectedYear) : undefined}
-          filled={!!selectedYear}
           disabled={!selectedModel}
-          onPress={() => selectedModel && openPicker('year')}
+          onPress={() => setPickerMode('year')}
         />
-        <SelectField
-          label="VERSÃO"
-          placeholder={selectedYear ? 'Selecione a versão' : 'Selecione o ano primeiro'}
-          value={selectedTrim ?? undefined}
-          filled={!!selectedTrim}
+        <SelectRow
+          label="Versão"
+          icon="catEngine"
+          placeholder={selectedYear ? 'Selecione a versão' : 'Escolha o ano primeiro'}
+          value={selectedTrim}
           disabled={!selectedYear}
-          onPress={() => selectedYear && openPicker('trim')}
+          onPress={() => setPickerMode('trim')}
         />
 
-        <Animated.View
-          style={[
-            styles.tipCard,
-            {
-              opacity: tipAnim,
-              transform: [
-                {
-                  translateY: tipAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.tipIcon}>💡</Text>
-          <View style={styles.tipContent}>
-            <Text style={styles.tipTitle}>Dica</Text>
-            <Text style={styles.tipText}>
-              Selecione a versão mais próxima que deseja comparar com seus modelos.
-            </Text>
-          </View>
-        </Animated.View>
-
-        <TouchableOpacity
-          style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
-          onPress={handleContinue}
-          activeOpacity={canContinue ? 0.85 : 1}
-          disabled={!canContinue}
-        >
-          <Text style={[styles.continueBtnText, !canContinue && styles.continueBtnTextDisabled]}>
-            {!sessionId ? 'Selecione uma sessão' : 'Continuar →'}
-          </Text>
-        </TouchableOpacity>
+        {/* Cartão de conferência — aparece assim que dá para identificar o carro. */}
+        {selectedBrand && selectedModel ? (
+          <Card variant="brand" style={styles.preview}>
+            <View style={styles.previewIcon}>
+              <Icon name="vehicle" size={18} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt variant="micro" tone="muted" uppercase style={{ letterSpacing: 1 }}>
+                {selectedBrand}
+              </Txt>
+              <Txt variant="title3" numberOfLines={1}>
+                {selectedModel.name}
+                {selectedTrim ? ` ${selectedTrim}` : ''}
+              </Txt>
+              {selectedYear ? <Badge label={String(selectedYear)} tone="brand" size="sm" /> : null}
+            </View>
+          </Card>
+        ) : (
+          <Callout tone="tip" style={{ marginTop: theme.space[2] }}>
+            Escolha a versão mais próxima da que você quer comparar com os seus modelos — é ela
+            que define a ficha técnica que a IA vai buscar.
+          </Callout>
+        )}
       </ScrollView>
 
-      <Modal visible={pickerMode !== null} transparent animationType="none" onRequestClose={closePicker}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closePicker} />
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              transform: [
-                {
-                  translateY: sheetAnim.interpolate({ inputRange: [0, 1], outputRange: [400, 0] }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>{pickerTitle}</Text>
+      {/* Barra de ação fixa: o próximo passo fica sempre ao alcance do polegar. */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + theme.space[3] }]}>
+        <Button
+          label={
+            !sessionId
+              ? 'Selecione uma sessão'
+              : canContinue
+                ? 'Continuar'
+                : 'Complete os campos acima'
+          }
+          size="lg"
+          icon={canContinue ? 'forward' : undefined}
+          iconPosition="trailing"
+          onPress={handleContinue}
+          disabled={!canContinue}
+        />
+      </View>
 
-          {pickerLoading ? (
-            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <ActivityIndicator color={theme.colors.primary} />
-            </View>
-          ) : pickerError ? (
-            <View style={{ paddingVertical: 32, alignItems: 'center', paddingHorizontal: 24 }}>
-              <Text style={{ color: '#c0392b', textAlign: 'center' }}>
-                Não foi possível carregar. Verifique sua conexão.
-              </Text>
-            </View>
-          ) : pickerOptions.length === 0 ? (
-            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <Text style={{ color: theme.colors.textLight }}>Nenhum item disponível.</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={pickerOptions}
-              keyExtractor={(item) => item.value}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 24 }}
-              renderItem={({ item }) => {
-                const isSelected =
-                  (pickerMode === 'brand' && selectedBrand === item.value) ||
-                  (pickerMode === 'model' && selectedModel?.name === item.value) ||
-                  (pickerMode === 'year' && selectedYear === Number(item.value)) ||
-                  (pickerMode === 'trim' && selectedTrim === item.value);
-                return (
-                  <TouchableOpacity
-                    style={[styles.optionItem, isSelected && styles.optionItemSelected]}
-                    onPress={() => {
-                      if (pickerMode === 'brand') handleSelectBrand(item.value);
-                      else if (pickerMode === 'model') {
-                        const m = (modelsQuery.data ?? []).find((x) => x.name === item.value);
-                        if (m) handleSelectModel(m);
-                      } else if (pickerMode === 'year') {
-                        handleSelectYear(Number(item.value));
-                      } else if (pickerMode === 'trim') handleSelectTrim(item.value);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.optionLeft}>
-                      <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
-                        {item.label}
-                      </Text>
-                      {item.subtitle ? (
-                        <Text
-                          style={[
-                            styles.optionSubtitle,
-                            isSelected && styles.optionSubtitleSelected,
-                          ]}
-                        >
-                          {item.subtitle}
-                        </Text>
-                      ) : null}
+      <Sheet
+        visible={pickerMode !== null}
+        onClose={closePicker}
+        title={pickerTitle}
+        avoidKeyboard={searchable}
+        maxHeightRatio={0.82}
+      >
+        {searchable ? (
+          <TextField
+            icon="search"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar…"
+            autoCapitalize="none"
+            autoCorrect={false}
+            containerStyle={{ marginBottom: theme.space[3] }}
+          />
+        ) : null}
+
+        {pickerLoading ? (
+          <SkeletonList count={5} />
+        ) : pickerError ? (
+          <ErrorState description="Não foi possível carregar. Verifique sua conexão." />
+        ) : filteredOptions.length === 0 ? (
+          <EmptyState
+            icon="search"
+            title={query ? 'Nada encontrado' : 'Nenhum item disponível'}
+            description={
+              query ? `Nenhum resultado para "${query.trim()}".` : 'Tente outra combinação.'
+            }
+          />
+        ) : (
+          <FlatList
+            data={filteredOptions}
+            keyExtractor={(item) => item.value}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: theme.space[3], gap: theme.space[1] }}
+            renderItem={({ item }) => {
+              const selected = isSelectedOption(item.value);
+              return (
+                <PressableScale
+                  onPress={() => pickOption(item.value)}
+                  scaleTo={0.985}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  style={[styles.option, selected && styles.optionSelected]}
+                >
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Txt variant={selected ? 'bodyStrong' : 'body'} numberOfLines={1}>
+                      {item.label}
+                    </Txt>
+                    {item.subtitle ? (
+                      <Txt variant="micro" tone="faint">
+                        {item.subtitle}
+                      </Txt>
+                    ) : null}
+                  </View>
+                  {selected ? (
+                    <View style={styles.check}>
+                      <Icon name="check" size={10} color="#FFFFFF" />
                     </View>
-                    {isSelected && <Text style={styles.checkMark}>✓</Text>}
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          )}
-        </Animated.View>
-      </Modal>
+                  ) : null}
+                </PressableScale>
+              );
+            }}
+          />
+        )}
+      </Sheet>
 
       <SessionPickerSheet
         visible={sessionPickerVisible}
@@ -392,48 +391,57 @@ export const SearchScreen = ({ navigation, route }: any) => {
         onClose={() => setSessionPickerVisible(false)}
         onSelect={handleSelectSession}
       />
-    </SafeAreaView>
+    </Screen>
   );
 };
 
-interface StepProgressProps {
-  steps: string[];
-  current: number;
-}
-const StepProgress: React.FC<StepProgressProps> = ({ steps, current }) => (
-  <View style={progressStyles.container}>
-    {steps.map((step, i) => (
-      <React.Fragment key={step}>
-        <View style={progressStyles.item}>
-          <View
-            style={[
-              progressStyles.dot,
-              i === current && progressStyles.dotActive,
-              i < current && progressStyles.dotDone,
-            ]}
-          >
-            {i < current ? (
-              <Text style={progressStyles.dotCheck}>✓</Text>
-            ) : (
-              <Text style={[progressStyles.dotNum, i === current && progressStyles.dotNumActive]}>
-                {i + 1}
-              </Text>
-            )}
-          </View>
-          <Text
-            style={[
-              progressStyles.label,
-              i === current && progressStyles.labelActive,
-              i < current && progressStyles.labelDone,
-            ]}
-          >
-            {step}
-          </Text>
-        </View>
-        {i < steps.length - 1 && (
-          <View style={[progressStyles.line, i < current && progressStyles.lineDone]} />
-        )}
-      </React.Fragment>
-    ))}
-  </View>
-);
+const styles = StyleSheet.create({
+  body: {
+    padding: theme.space[4],
+    paddingTop: theme.space[5],
+    paddingBottom: theme.space[6],
+  },
+  preview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[3],
+    marginTop: theme.space[2],
+  },
+  previewIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.brand[800],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footer: {
+    paddingHorizontal: theme.space[4],
+    paddingTop: theme.space[3],
+    backgroundColor: theme.colors.card,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.borderSubtle,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[3],
+    paddingVertical: theme.space[3],
+    paddingHorizontal: theme.space[3],
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  optionSelected: {
+    backgroundColor: theme.brand[50],
+    borderColor: theme.brand[100],
+  },
+  check: {
+    width: 22,
+    height: 22,
+    borderRadius: theme.radii.full,
+    backgroundColor: theme.brand[600],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

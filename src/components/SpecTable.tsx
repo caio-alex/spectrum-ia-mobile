@@ -1,66 +1,105 @@
 // src/components/SpecTable.tsx
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { theme } from '../styles/theme';
-import { useNavigation } from '@react-navigation/native';
-import { styles } from '../styles/specTable.styles';
+//
+// A tabela de especificações — o miolo do resultado.
+//
+// Cada linha traz o dado E a sua procedência. A leitura da procedência é feita
+// por três barrinhas (cheias = Oficial, duas = Review, uma = Estimado) em vez do
+// ponto vermelho/laranja/verde anterior: vermelho para "Estimado" fazia um dado
+// inferido parecer um erro, e treinava o usuário a ignorar alertas de verdade.
 
-interface SpecItem {
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { theme, type ConfidenceKey } from '../styles/theme';
+import { ConfidenceBars, Icon, PressableScale, Txt } from './ui';
+
+export interface SpecItem {
   label: string;
   value: string;
-  source: string;
-  status: 'high' | 'medium' | 'low';
+  /** Chave de procedência já normalizada (official | review | estimated). */
+  level: ConfidenceKey;
 }
 
-export const SpecTable = ({ category, data }: { category: string, data: SpecItem[] }) => {
-  const navigation = useNavigation<any>();
+interface Props {
+  data: SpecItem[];
+  onPressItem?: (item: SpecItem) => void;
+}
 
-  const getStatusColor = (status: string) => {
-    if (status === 'high') return '#4CAF50'; // Oficial
-    if (status === 'medium') return '#FF9800'; // Review
-    return '#F44336'; // Estimado
-  };
-
-  const getConfidenceLevel = (status: string) => {
-    if (status === 'high') return 'official';
-    if (status === 'medium') return 'review';
-    return 'estimated';
-  };
-
-  return (
-    // Removido o "styles.tableContainer" para que ele se mescle ao menu expansível
-    <View>
-      {/* Só renderiza o título se a categoria for preenchida (evita espaços em branco) */}
-      {!!category && <Text style={styles.categoryTitle}>{category}</Text>}
-      
-      {data.map((item, index) => (
-        <TouchableOpacity 
-          key={index} 
-          style={[styles.row, index === data.length - 1 && { borderBottomWidth: 0 }]}
-          activeOpacity={0.7}
-          // onPress={() => {
-          //   navigation.navigate('FieldDetail', {
-          //     vehicleName: 'Veículo Selecionado',
-          //     fieldCategory: category,
-          //     fieldName: item.label,
-          //     fieldValue: item.value,
-          //     confidence: getConfidenceLevel(item.status),
-          //     sourceName: item.source,
-          //     sourceUrl: 'https://exemplo.com/fonte',
-          //     sourceQuote: 'Trecho extraído do texto original pela IA para embasar este dado.'
-          //   });
-          // }}
-        >
+export const SpecTable: React.FC<Props> = ({ data, onPressItem }) => (
+  <View>
+    {data.map((item, index) => {
+      const isLast = index === data.length - 1;
+      const row = (
+        <>
           <View style={styles.labelCol}>
-            <Text style={styles.label}>{item.label}</Text>
-            <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+            <Txt variant="caption" tone="muted" numberOfLines={3}>
+              {item.label}
+            </Txt>
           </View>
           <View style={styles.valueCol}>
-            <Text style={styles.value}>{item.value}</Text>
-            <Text style={styles.source}>Fonte: {item.source}</Text>
+            <Txt variant="captionStrong" numberOfLines={4} style={{ textAlign: 'right' }}>
+              {item.value}
+            </Txt>
+            <View style={styles.confidenceRow}>
+              <ConfidenceBars level={item.level} />
+              <Txt variant="micro" tone="faint" style={{ fontSize: 10 }}>
+                {theme.confidence[item.level].label}
+              </Txt>
+              {onPressItem ? (
+                <Icon name="chevronRight" size={9} color={theme.ink[300]} />
+              ) : null}
+            </View>
           </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
+        </>
+      );
+
+      if (!onPressItem) {
+        return (
+          <View key={`${item.label}-${index}`} style={[styles.row, isLast && styles.rowLast]}>
+            {row}
+          </View>
+        );
+      }
+
+      return (
+        <PressableScale
+          key={`${item.label}-${index}`}
+          onPress={() => onPressItem(item)}
+          scaleTo={0.99}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.label}: ${item.value}`}
+          style={[styles.row, isLast && styles.rowLast]}
+        >
+          {row}
+        </PressableScale>
+      );
+    })}
+  </View>
+);
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.space[4],
+    paddingVertical: theme.space[3],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderSubtle,
+  },
+  rowLast: {
+    borderBottomWidth: 0,
+  },
+  labelCol: {
+    flex: 1,
+    paddingTop: 1,
+  },
+  valueCol: {
+    flex: 1.15,
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  confidenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+});

@@ -1,14 +1,21 @@
 // src/mocks/homeData.ts
 //
-// Após a integração:
-//   - MOCK_USER foi removido — o perfil vem agora do AuthContext (AuthResponse.user).
-//   - MOCK_RECENT_SEARCHES foi removido — substituído por GET /v1/searches (paginado).
-//   - MOCK_USER_STATS continua mockado porque o backend ainda não expõe /users/me/stats.
+// O que sobrou aqui depois da integração com a API:
 //
-// O tipo `RecentSearch` é mantido como contrato visual do componente SearchCard,
-// alimentado por um adapter no HomeScreen (SearchSummary -> RecentSearch).
-
-export type SourceTag = 'Oficial' | 'Review' | 'Estimado';
+//   - MOCK_USER            → removido; o perfil vem do AuthContext.
+//   - MOCK_RECENT_SEARCHES → removido; substituído por GET /v1/searches.
+//   - MOCK_USER_STATS      → removido; as métricas da Home agora saem dos
+//                            totais que a própria API devolve (totalElements
+//                            das pesquisas e das sessões + soma dos campos).
+//                            Números fixos na primeira tela do app corroem a
+//                            confiança em tudo que vem depois.
+//   - RecentSearch.sourceTag → removido; o adapter o preenchia como 'Oficial'
+//                            para todos os itens, o que exibia uma garantia de
+//                            procedência que o dado não tinha. Procedência real
+//                            só aparece na tela de resultado, campo a campo.
+//
+// O tipo `RecentSearch` permanece como contrato visual do <SearchCard>,
+// alimentado por um adapter em useSearchCards (SearchSummary -> RecentSearch).
 
 export interface RecentSearch {
   id: string;
@@ -17,25 +24,7 @@ export interface RecentSearch {
   version: string;
   categories: string[];
   totalFields: number;
-  sourceTag: SourceTag;
   createdAt: string;
   relativeTime: string;
   status: 'completed' | 'in_progress' | 'error';
 }
-
-export interface UserProfile {
-  id: string;
-  name: string;
-  initials: string;
-  email: string;
-  company: string;
-  avatarUrl?: string;
-}
-
-// Stats rápidas exibidos no header da HomeScreen.
-// TODO: substituir por GET /v1/users/me/stats quando disponível.
-export const MOCK_USER_STATS = {
-  totalSearches: 12,
-  totalFields: 247,
-  comparisons: 3,
-};

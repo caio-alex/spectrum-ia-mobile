@@ -5,22 +5,25 @@
 // comparativo completo (GET /v1/sessions/{id}/export).
 
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Linking, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../styles/theme';
-import { styles } from '../../styles/sessionsScreen.styles';
 import { SearchCard } from '../../components/SearchCard';
 import { ExportSheet } from '../../components/ExportSheet';
+import {
+  BottomInset,
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  IconButton,
+  Screen,
+  ScreenHeader,
+  SectionHeader,
+  SkeletonList,
+  StatRow,
+  Txt,
+} from '../../components/ui';
 import { useSession } from '../../hooks/useSessions';
 import { useSessionSearches } from '../../hooks/useSearches';
 import { useSearchCards } from '../../hooks/useSearchCards';
@@ -37,13 +40,13 @@ const PAGE_SIZE = 50;
 const EXPORT_OPTIONS = [
   {
     format: 'pdf' as ExportFormat,
-    icon: '📄',
+    icon: 'pdf' as const,
     title: 'Baixar PDF',
     subtitle: 'Relatório formatado, pronto para leitura',
   },
   {
     format: 'csv' as ExportFormat,
-    icon: '📊',
+    icon: 'csv' as const,
     title: 'Baixar CSV',
     subtitle: 'Todos os veículos da sessão em uma única planilha',
   },
@@ -137,40 +140,31 @@ export const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   }
 
   const total = searchesQuery.data?.totalElements ?? 0;
+  const totalFields = cards.reduce((sum, c) => sum + c.totalFields, 0);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
-
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation?.goBack()}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerSessionName} numberOfLines={2}>
-            {sessionName}
-          </Text>
-          <TouchableOpacity
-            style={styles.headerActionBtn}
-            onPress={openExportSheet}
-            activeOpacity={0.7}
-            accessibilityLabel="Exportar sessão"
-          >
-            <Text style={styles.headerActionIcon}>⬇️</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.headerSubtitle}>
-          {session ? `Criada em ${formatDate(session.createdAt)}` : 'Carregando sessão...'}
-        </Text>
-      </View>
+    <Screen>
+      <ScreenHeader
+        onBack={() => navigation?.goBack()}
+        actions={
+          <IconButton icon="download" onPress={openExportSheet} accessibilityLabel="Exportar sessão" />
+        }
+        eyebrow="Sessão"
+        title={sessionName}
+        subtitle={session ? `Criada em ${formatDate(session.createdAt)}` : 'Carregando…'}
+      >
+        <StatRow
+          onDark
+          style={{ marginTop: theme.space[5] }}
+          items={[
+            { icon: 'vehicle', value: total, label: total === 1 ? 'Veículo' : 'Veículos' },
+            { icon: 'fields', value: totalFields, label: 'Campos' },
+          ]}
+        />
+      </ScreenHeader>
 
       <ScrollView
-        style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -181,60 +175,54 @@ export const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           />
         }
       >
-        {session ? (
-          <View style={styles.sessionMetaCard}>
-            {session.description ? (
-              <Text style={styles.sessionMetaDescription}>{session.description}</Text>
-            ) : null}
-            <View style={styles.sessionMetaRow}>
-              <Text style={styles.sessionMetaLabel}>
-                Criada em {formatDate(session.createdAt)}
-              </Text>
-              <View style={styles.sessionMetaBadge}>
-                <Text style={styles.sessionMetaBadgeText}>
-                  {total} {total === 1 ? 'pesquisa' : 'pesquisas'}
-                </Text>
-              </View>
-            </View>
-          </View>
+        {session?.description ? (
+          <Card variant="muted" style={{ marginBottom: theme.space[4] }}>
+            <Txt variant="caption" tone="muted">
+              {session.description}
+            </Txt>
+          </Card>
         ) : null}
 
-        <TouchableOpacity
-          style={styles.primaryBtn}
+        <Button
+          label="Nova pesquisa nesta sessão"
+          icon="add"
+          size="lg"
           onPress={handleNewSearch}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.primaryBtnPlus}>+</Text>
-          <Text style={styles.primaryBtnLabel}>Nova pesquisa nesta sessão</Text>
-        </TouchableOpacity>
+          style={{ marginBottom: theme.space[6] }}
+        />
 
-        <Text style={styles.sectionLabel}>Pesquisas da sessão</Text>
+        <SectionHeader
+          title="Veículos analisados"
+          actionLabel={cards.length > 1 ? 'Comparar' : undefined}
+          onAction={cards.length > 1 ? () => navigation?.navigate('Compare') : undefined}
+        />
 
         {searchesQuery.isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color={theme.colors.primary} />
-          </View>
+          <SkeletonList count={3} />
         ) : searchesQuery.error ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateError}>
-              {extractApiErrorMessage(searchesQuery.error, {
-                fallback: 'Não foi possível carregar as pesquisas desta sessão.',
-              })}
-            </Text>
-          </View>
+          <ErrorState
+            description={extractApiErrorMessage(searchesQuery.error, {
+              fallback: 'Não foi possível carregar as pesquisas desta sessão.',
+            })}
+            onRetry={() => void searchesQuery.refetch()}
+          />
         ) : cards.length === 0 ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateEmoji}>🚗</Text>
-            <Text style={styles.stateTitle}>Nenhum veículo nesta sessão</Text>
-            <Text style={styles.stateText}>
-              Toque em "Nova pesquisa nesta sessão" para adicionar o primeiro veículo.
-            </Text>
-          </View>
+          <EmptyState
+            icon="vehicle"
+            title="Nenhum veículo nesta sessão"
+            description="Adicione o primeiro veículo para começar a montar o comparativo."
+            actionLabel="Nova pesquisa"
+            onAction={handleNewSearch}
+          />
         ) : (
-          cards.map((item) => (
-            <SearchCard key={item.id} item={item} onPress={handleSearchPress} />
-          ))
+          <View>
+            {cards.map((item) => (
+              <SearchCard key={item.id} item={item} onPress={handleSearchPress} />
+            ))}
+          </View>
         )}
+
+        <BottomInset extra={theme.space[6]} />
       </ScrollView>
 
       <ExportSheet
@@ -247,6 +235,13 @@ export const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         onClose={() => setExportVisible(false)}
         onSelect={handleExport}
       />
-    </SafeAreaView>
+    </Screen>
   );
 };
+
+const styles = StyleSheet.create({
+  body: {
+    padding: theme.space[4],
+    paddingTop: theme.space[5],
+  },
+});

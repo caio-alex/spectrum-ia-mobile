@@ -1,381 +1,619 @@
 // src/screens/compare/CompareScreen.tsx
 //
 // TELA — COMPARAÇÃO DE VEÍCULOS
-// Exibe cards dos veículos analisados com foto via NHTSA + Car Query API (gratuitas)
-// e comparação lado a lado de todas as especificações por categoria.
 //
-// Integração real futura:
-//   - Fotos: https://www.carqueryapi.com/ ou https://car-api.io (plano gratuito)
-//   - Specs: GET /api/v1/searches/:id/result
+// Cards dos veículos analisados e comparação lado a lado das especificações,
+// por categoria, com destaque do melhor valor de cada linha.
+//
+// ATENÇÃO: esta tela ainda roda 100% sobre `COMPARE_MOCK_VEHICLES`. Enquanto o
+// backend não expõe um endpoint de comparativo, um aviso explícito no topo diz
+// isso ao usuário — uma tela de análise competitiva com números inventados e
+// sem etiqueta é o tipo de coisa que acaba em slide de cliente.
+//
+// Integração futura: GET /v1/searches/:id/result para cada veículo da sessão.
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { theme, withAlpha } from '../../styles/theme';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Image,
-  FlatList,
-  Platform,
-  ActivityIndicator,
-  Dimensions,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { theme } from '../../styles/theme';
-import { styles } from '../../styles/compareScreen.styles';
+  BottomInset,
+  Callout,
+  Card,
+  Icon,
+  PressableScale,
+  Screen,
+  ScreenHeader,
+  Txt,
+  categoryIdentity,
+} from '../../components/ui';
 import {
   COMPARE_MOCK_VEHICLES,
   COMPARE_SPEC_CATEGORIES,
   type CompareVehicle,
 } from '../../mocks/compareData';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faHouse } from '@fortawesome/free-solid-svg-icons';
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const MAX_VEHICLES = 3;
+const MIN_VEHICLES = 2;
 
 interface Props {
   navigation?: any;
   route?: { params?: { vehicleIds?: string[] } };
 }
 
-// ── Componente principal ──────────────────────────────────────────────────
 export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
   const passedIds = route?.params?.vehicleIds;
 
-  // Usa os veículos passados via params ou exibe todos os analisados
   const [selectedVehicles, setSelectedVehicles] = useState<CompareVehicle[]>(
     passedIds
       ? COMPARE_MOCK_VEHICLES.filter((v) => passedIds.includes(v.id))
-      : COMPARE_MOCK_VEHICLES.slice(0, 2)
+      : COMPARE_MOCK_VEHICLES.slice(0, 2),
   );
-
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [highlightWinner, setHighlightWinner] = useState(true);
 
   const toggleVehicle = useCallback((vehicle: CompareVehicle) => {
     setSelectedVehicles((prev) => {
-      const isSelected = prev.find((v) => v.id === vehicle.id);
+      const isSelected = prev.some((v) => v.id === vehicle.id);
       if (isSelected) {
-        if (prev.length <= 2) return prev;
+        if (prev.length <= MIN_VEHICLES) return prev;
         return prev.filter((v) => v.id !== vehicle.id);
       }
-      if (prev.length >= 3) return prev;
+      if (prev.length >= MAX_VEHICLES) return prev;
       return [...prev, vehicle];
     });
   }, []);
 
-  // Filtra categorias conforme seleção
-  const visibleCategories =
-    activeCategory === 'all'
-      ? COMPARE_SPEC_CATEGORIES
-      : COMPARE_SPEC_CATEGORIES.filter((c) => c.id === activeCategory);
+  const visibleCategories = useMemo(
+    () =>
+      activeCategory === 'all'
+        ? COMPARE_SPEC_CATEGORIES
+        : COMPARE_SPEC_CATEGORIES.filter((c) => c.id === activeCategory),
+    [activeCategory],
+  );
 
-  // Determina vencedor por campo (valor mais alto = melhor, exceto consumo)
-  const getWinner = (fieldId: string, values: (string | number)[]): number => {
+  /** Índice do melhor valor da linha; -1 quando há empate ou valor não numérico. */
+  const getWinner = useCallback((fieldId: string, values: (string | number)[]): number => {
     const parsed = values.map((v) => parseFloat(String(v).replace(',', '.')));
-    if (parsed.some(isNaN)) return -1;
-    const isLowerBetter = ['consumo_cidade', 'consumo_estrada', 'aceleracao', 'co2'].includes(fieldId);
+    if (parsed.some(Number.isNaN)) return -1;
+    const isLowerBetter = ['consumo_cidade', 'consumo_estrada', 'aceleracao', 'co2'].includes(
+      fieldId,
+    );
     const best = isLowerBetter ? Math.min(...parsed) : Math.max(...parsed);
-    const idx = parsed.indexOf(best);
-    return parsed.filter((p) => p === best).length === 1 ? idx : -1;
-  };
+    return parsed.filter((p) => p === best).length === 1 ? parsed.indexOf(best) : -1;
+  }, []);
+
+  const colFlex = selectedVehicles.length === 2 ? 1 : 0.72;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+    <Screen>
+      <ScreenHeader
+        onBack={() => navigation?.goBack()}
+        eyebrow="Análise competitiva"
+        title="Comparar"
+        subtitle={`${selectedVehicles.length} veículos lado a lado`}
+        actions={
+          <PressableScale
+            onPress={() => setHighlightWinner((v) => !v)}
+            scaleTo={0.92}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: highlightWinner }}
+            accessibilityLabel="Destacar melhor valor"
+            style={[styles.toggle, highlightWinner && styles.toggleActive]}
+          >
+            <Icon
+              name="spark"
+              size={11}
+              color={highlightWinner ? theme.brand[900] : theme.colors.onDarkMuted}
+            />
+            <Txt
+              variant="micro"
+              color={highlightWinner ? theme.brand[900] : theme.colors.onDarkMuted}
+              style={{ fontFamily: theme.fonts.semibold, fontSize: 10 }}
+            >
+              Destaques
+            </Txt>
+          </PressableScale>
+        }
+      />
 
-      {/* ── HEADER ───────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack()} activeOpacity={0.7}>
-          <FontAwesomeIcon icon={faHouse} size={24} style={{ color: '#fbfbfb' }} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Comparar Veículos</Text>
-          <Text style={styles.headerSub}>{selectedVehicles.length} selecionados</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[4]}
+        contentContainerStyle={{ paddingTop: theme.space[4] }}
+      >
+        {/* 0 — aviso de dados de demonstração */}
+        <View style={styles.section}>
+          <Callout tone="warning" title="Dados de demonstração">
+            Os números abaixo são de exemplo. O comparativo com as suas pesquisas reais entra
+            quando o backend expuser o endpoint de comparação.
+          </Callout>
         </View>
-        <TouchableOpacity
-          style={[styles.highlightToggle, highlightWinner && styles.highlightToggleActive]}
-          onPress={() => setHighlightWinner(!highlightWinner)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.highlightToggleText, highlightWinner && styles.highlightToggleTextActive]}>
-            🏆
-          </Text>
-        </TouchableOpacity>
-      </View>
 
-      <View style={styles.content}>
-        {/* stickyHeaderIndices={[4]} fixa o componente StickyVehicleHeader no topo ao scrollar */}
-        <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[4]}>
-
-          {/* ── SELEÇÃO DE VEÍCULOS (Index 0) ─────────────────────── */}
-          <View style={styles.vehicleSelector}>
-            <Text style={styles.sectionLabel}>VEÍCULOS ANALISADOS</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleListContent}>
-              {COMPARE_MOCK_VEHICLES.map((vehicle) => {
-                const isSelected = !!selectedVehicles.find((v) => v.id === vehicle.id);
-                return (
-                  <VehicleChip
-                    key={vehicle.id}
-                    vehicle={vehicle}
-                    selected={isSelected}
-                    onPress={() => toggleVehicle(vehicle)}
-                  />
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          {/* ── CARDS DE VEÍCULOS COM FOTOS (Index 1) ─────────────── */}
-          <View style={styles.vehicleCardsRow}>
-            {selectedVehicles.map((vehicle, idx) => (
-              <VehicleCard
-                key={vehicle.id}
-                vehicle={vehicle}
-                index={idx}
-              />
-            ))}
-          </View>
-
-          {/* ── SCORE GERAL (Index 2) ────────────────────────────── */}
-          <ScoreBar vehicles={selectedVehicles} />
-
-          {/* ── FILTRO DE CATEGORIAS (Index 3) ───────────────────── */}
+        {/* 1 — seleção de veículos */}
+        <View style={styles.section}>
+          <Txt variant="label" tone="muted" uppercase style={{ marginBottom: theme.space[3] }}>
+            Veículos analisados
+          </Txt>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryFilterContent}
-            style={styles.categoryFilter}
+            style={styles.bleed}
+            contentContainerStyle={styles.bleedContent}
           >
-            <TouchableOpacity
-              style={[styles.categoryChip, activeCategory === 'all' && styles.categoryChipActive]}
-              onPress={() => setActiveCategory('all')}
-            >
-              <Text style={[styles.categoryChipText, activeCategory === 'all' && styles.categoryChipTextActive]}>
-                Todos
-              </Text>
-            </TouchableOpacity>
-            {COMPARE_SPEC_CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                style={[styles.categoryChip, activeCategory === cat.id && styles.categoryChipActive]}
-                onPress={() => setActiveCategory(cat.id)}
-              >
-                <Text style={[styles.categoryChipText, activeCategory === cat.id && styles.categoryChipTextActive]}>
-                  {cat.emoji} {cat.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* ── CABEÇALHO FIXO DE CARROS DA TABELA (Index 4) ──────── */}
-          <StickyVehicleHeader vehicles={selectedVehicles} />
-
-          {/* ── TABELAS DE SPECS POR CATEGORIA (Index 5+) ─────────── */}
-          {visibleCategories.map((category) => (
-            <View key={category.id} style={styles.specSection}>
-              <View style={styles.specSectionHeader}>
-                <Text style={styles.specSectionEmoji}>{category.emoji}</Text>
-                <Text style={styles.specSectionTitle}>{category.name}</Text>
-              </View>
-
-              {category.fields.map((field) => {
-                const values = selectedVehicles.map((v) => v.specs[field.id] ?? '—');
-                const winnerIdx = highlightWinner ? getWinner(field.id, values) : -1;
-
-                return (
-                  <SpecRow
-                    key={field.id}
-                    label={field.label}
-                    unit={field.unit}
-                    values={values}
-                    winnerIdx={winnerIdx}
-                    vehicleCount={selectedVehicles.length}
-                    confidences={selectedVehicles.map((v) => v.specConfidence[field.id] ?? 'medium')}
-                  />
-                );
-              })}
-            </View>
-          ))}
-
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </View>
-    </SafeAreaView>
-  );
-};
-
-// ── VehicleChip ────────────────────────────────────────────────────────────
-const VehicleChip: React.FC<{
-  vehicle: CompareVehicle;
-  selected: boolean;
-  onPress: () => void;
-}> = ({ vehicle, selected, onPress }) => (
-  <TouchableOpacity
-    style={[styles.vehicleChip, selected && styles.vehicleChipSelected]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    {selected && <View style={[styles.vehicleChipDot, { backgroundColor: vehicle.brandColor }]} />}
-    <Text style={[styles.vehicleChipText, selected && styles.vehicleChipTextSelected]} numberOfLines={1}>
-      {vehicle.brand} {vehicle.model}
-    </Text>
-    {selected && <Text style={styles.vehicleChipCheck}>✓</Text>}
-  </TouchableOpacity>
-);
-
-// ── VehicleCard ────────────────────────────────────────────────────────────
-const VehicleCard: React.FC<{
-  vehicle: CompareVehicle;
-  index: number;
-}> = ({ vehicle, index }) => (
-  <View style={[styles.vehicleCard, { borderTopColor: vehicle.brandColor }]}>
-    {/* Foto via API gratuita (Car Image API / Unsplash fallback) */}
-    <View style={styles.vehicleImageContainer}>
-      <Image
-        source={{ uri: vehicle.imageUrl }}
-        style={styles.vehicleImage}
-        resizeMode="cover"
-        defaultSource={require('../../../assets/icon.png')}
-      />
-      <View style={[styles.vehicleBrandBadge, { backgroundColor: vehicle.brandColor }]}>
-        <Text style={styles.vehicleBrandBadgeText}>{vehicle.brand}</Text>
-      </View>
-    </View>
-
-    {/* Info */}
-    <View style={styles.vehicleCardInfo}>
-      <Text style={styles.vehicleCardModel} numberOfLines={1}>{vehicle.model}</Text>
-      <Text style={styles.vehicleCardVersion} numberOfLines={1}>{vehicle.version}</Text>
-      <Text style={styles.vehicleCardYear}>{vehicle.year}</Text>
-
-      {/* Score de confiança da IA */}
-      <View style={styles.vehicleScoreRow}>
-        <View style={[styles.vehicleScoreBadge, { backgroundColor: getScoreColor(vehicle.aiScore) + '20' }]}>
-          <Text style={[styles.vehicleScoreText, { color: getScoreColor(vehicle.aiScore) }]}>
-            IA {vehicle.aiScore}%
-          </Text>
-        </View>
-        <Text style={styles.vehicleFieldsCount}>{vehicle.totalFields} campos</Text>
-      </View>
-
-      <Text style={styles.vehiclePrice}>{vehicle.priceFrom}</Text>
-    </View>
-  </View>
-);
-
-// ── ScoreBar ────────────────────────────────────────────────────────────────
-const ScoreBar: React.FC<{ vehicles: CompareVehicle[] }> = ({ vehicles }) => {
-  const categories = ['Motor', 'Segurança', 'Tecnologia', 'Conforto', 'Custo-benefício'];
-
-  return (
-    <View style={styles.scoreBarContainer}>
-      <Text style={styles.scoreBarTitle}>AVALIAÇÃO IA POR CATEGORIA</Text>
-      {categories.map((cat) => (
-        <View key={cat} style={styles.scoreBarRow}>
-          <Text style={styles.scoreBarLabel}>{cat}</Text>
-          <View style={styles.scoreBarBars}>
-            {vehicles.map((v, i) => {
-              const score = v.categoryScores[cat] ?? 0;
+            {COMPARE_MOCK_VEHICLES.map((vehicle) => {
+              const selected = selectedVehicles.some((v) => v.id === vehicle.id);
               return (
-                <View key={v.id} style={styles.scoreBarItem}>
-                  <View style={styles.scoreBarTrack}>
-                    <View
-                      style={[
-                        styles.scoreBarFill,
-                        { width: `${score}%`, backgroundColor: v.brandColor },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.scoreBarValue}>{score}</Text>
-                </View>
+                <PressableScale
+                  key={vehicle.id}
+                  onPress={() => toggleVehicle(vehicle)}
+                  scaleTo={0.94}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                >
+                  <View
+                    style={[
+                      styles.chipDot,
+                      { backgroundColor: selected ? vehicle.brandColor : theme.ink[200] },
+                    ]}
+                  />
+                  <Txt variant="micro" style={{ fontFamily: theme.fonts.semibold }} numberOfLines={1}>
+                    {vehicle.brand} {vehicle.model}
+                  </Txt>
+                  {selected ? <Icon name="check" size={9} color={theme.brand[600]} /> : null}
+                </PressableScale>
               );
             })}
+          </ScrollView>
+        </View>
+
+        {/* 2 — cards com foto */}
+        <View style={[styles.section, styles.cardsRow]}>
+          {selectedVehicles.map((vehicle) => (
+            <VehicleCard key={vehicle.id} vehicle={vehicle} />
+          ))}
+        </View>
+
+        {/* 3 — avaliação por categoria */}
+        <View style={styles.section}>
+          <Card>
+            <Txt variant="label" tone="muted" uppercase style={{ marginBottom: theme.space[4] }}>
+              Avaliação por categoria
+            </Txt>
+            {['Motor', 'Segurança', 'Tecnologia', 'Conforto', 'Custo-benefício'].map((cat) => (
+              <View key={cat} style={styles.scoreRow}>
+                <Txt variant="micro" tone="muted" style={styles.scoreLabel} numberOfLines={1}>
+                  {cat}
+                </Txt>
+                <View style={{ flex: 1, gap: 5 }}>
+                  {selectedVehicles.map((v) => {
+                    const score = v.categoryScores[cat] ?? 0;
+                    return (
+                      <View key={v.id} style={styles.scoreBarRow}>
+                        <View style={styles.scoreTrack}>
+                          <View
+                            style={{
+                              width: `${score}%`,
+                              height: '100%',
+                              borderRadius: 3,
+                              backgroundColor: v.brandColor,
+                            }}
+                          />
+                        </View>
+                        <Txt
+                          variant="micro"
+                          style={{ fontFamily: theme.fonts.semibold, width: 22, fontSize: 10 }}
+                        >
+                          {score}
+                        </Txt>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </Card>
+        </View>
+
+        {/* 4 — filtro de categorias (fica fixo ao rolar) */}
+        <View style={styles.filterWrap}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContent}
+          >
+            <FilterChip
+              label="Todas"
+              active={activeCategory === 'all'}
+              onPress={() => setActiveCategory('all')}
+            />
+            {COMPARE_SPEC_CATEGORIES.map((cat) => (
+              <FilterChip
+                key={cat.id}
+                label={cat.name}
+                category={cat.name}
+                active={activeCategory === cat.id}
+                onPress={() => setActiveCategory(cat.id)}
+              />
+            ))}
+          </ScrollView>
+          <View style={styles.stickyHeader}>
+            <Txt variant="micro" tone="faint" uppercase style={styles.specLabelCol}>
+              Especificação
+            </Txt>
+            {selectedVehicles.map((v) => (
+              <View key={v.id} style={{ flex: colFlex, alignItems: 'center' }}>
+                <Txt
+                  variant="micro"
+                  color={v.brandColor}
+                  style={{ fontFamily: theme.fonts.bold, fontSize: 10 }}
+                  numberOfLines={1}
+                >
+                  {v.brand}
+                </Txt>
+                <Txt variant="micro" tone="faint" numberOfLines={1} style={{ fontSize: 9 }}>
+                  {v.model}
+                </Txt>
+              </View>
+            ))}
           </View>
         </View>
-      ))}
-    </View>
-  );
-};
 
-// ── StickyVehicleHeader ─────────────────────────────────────────────────────
-const StickyVehicleHeader: React.FC<{ vehicles: CompareVehicle[] }> = ({ vehicles }) => {
-  const colWidth = vehicles.length === 2 ? '40%' : '30%';
-
-  return (
-    <View style={styles.stickyHeader}>
-      <View style={styles.stickyHeaderLabelPlaceholder}>
-        <Text style={styles.stickyHeaderTitle}>ESPECIFICAÇÕES</Text>
-      </View>
-      <View style={styles.stickyHeaderColumns}>
-        {vehicles.map((v) => (
-          <View key={v.id} style={[styles.stickyHeaderCol, { width: colWidth }]}>
-            <Text style={[styles.stickyHeaderText, { color: v.brandColor }]} numberOfLines={1}>
-              {v.brand}
-            </Text>
-            <Text style={styles.stickyHeaderSubtext} numberOfLines={1}>
-              {v.model}
-            </Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-};
-
-// ── SpecRow ────────────────────────────────────────────────────────────────
-const SpecRow: React.FC<{
-  label: string;
-  unit?: string;
-  values: (string | number)[];
-  winnerIdx: number;
-  vehicleCount: number;
-  confidences: string[];
-}> = ({ label, unit, values, winnerIdx, vehicleCount, confidences }) => {
-  const colWidth = vehicleCount === 2 ? '40%' : '30%';
-
-  return (
-    <View style={styles.specRow}>
-      <Text style={styles.specRowLabel} numberOfLines={2}>{label}</Text>
-      <View style={styles.specRowValues}>
-        {values.map((val, i) => {
-          const isWinner = winnerIdx === i;
-          const conf = confidences[i];
+        {/* 5+ — tabelas por categoria */}
+        {visibleCategories.map((category) => {
+          const identity = categoryIdentity(category.name);
           return (
-            <View
-              key={i}
-              style={[
-                styles.specRowValue,
-                { width: colWidth },
-                isWinner && styles.specRowValueWinner,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.specRowValueText,
-                  isWinner && styles.specRowValueTextWinner,
-                  val === '—' && styles.specRowValueEmpty,
-                ]}
-                numberOfLines={2}
-              >
-                {val}{unit && val !== '—' ? ` ${unit}` : ''}
-              </Text>
-              {isWinner && <Text style={styles.specWinnerBadge}>🏆</Text>}
-              {conf === 'low' && val !== '—' && (
-                <Text style={styles.specConfidenceDot}>~</Text>
-              )}
+          <View key={category.id} style={styles.specSection}>
+            <View style={styles.specHead}>
+              <View style={[styles.specHeadIcon, { backgroundColor: withAlpha(identity.color, 0.12) }]}>
+                <Icon name={identity.icon} size={12} color={identity.color} />
+              </View>
+              <Txt variant="captionStrong">{category.name}</Txt>
             </View>
+
+            <Card padding={0} style={{ overflow: 'hidden' }}>
+              {category.fields.map((field, index) => {
+                const values = selectedVehicles.map((v) => v.specs[field.id] ?? '—');
+                const winnerIdx = highlightWinner ? getWinner(field.id, values) : -1;
+                return (
+                  <View
+                    key={field.id}
+                    style={[
+                      styles.specRow,
+                      index % 2 === 1 && { backgroundColor: theme.ink[25] },
+                      index === category.fields.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                  >
+                    <Txt variant="micro" tone="muted" style={styles.specLabelCol} numberOfLines={3}>
+                      {field.label}
+                    </Txt>
+                    {values.map((val, i) => {
+                      const isWinner = winnerIdx === i;
+                      const empty = val === '—';
+                      // Vários valores do mock já trazem a unidade embutida
+                      // ("177 cv (E) / 169 cv (G)"). Sem esta checagem saía
+                      // "177 cv (E) / 169 cv (G) cv".
+                      const showUnit =
+                        !!field.unit &&
+                        !empty &&
+                        !String(val).toLowerCase().includes(field.unit.toLowerCase());
+                      return (
+                        <View
+                          key={`${field.id}-${i}`}
+                          style={[
+                            styles.specValue,
+                            { flex: colFlex },
+                            isWinner && styles.specValueWinner,
+                          ]}
+                        >
+                          <Txt
+                            variant="micro"
+                            tone={empty ? 'faint' : 'default'}
+                            numberOfLines={3}
+                            center
+                            style={{
+                              fontFamily: isWinner ? theme.fonts.bold : theme.fonts.medium,
+                              fontSize: 11,
+                            }}
+                          >
+                            {val}
+                            {showUnit ? ` ${field.unit}` : ''}
+                          </Txt>
+                          {isWinner ? (
+                            <Icon name="spark" size={8} color={theme.colors.success} />
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+            </Card>
+          </View>
           );
         })}
-      </View>
-    </View>
+
+        <BottomInset extra={theme.space[6]} />
+      </ScrollView>
+    </Screen>
   );
 };
 
-// ── Helper ─────────────────────────────────────────────────────────────────
-function getScoreColor(score: number): string {
-  if (score >= 90) return '#1a6e1a';
-  if (score >= 75) return '#0047ab';
-  if (score >= 60) return '#c06000';
-  return '#c62828';
-}
+/* ── Peças ───────────────────────────────────────────────────────────────── */
+
+const FilterChip: React.FC<{
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  /** Sem categoria (o chip "Todas") o filtro usa o azul da marca. */
+  category?: string;
+}> = ({ label, active, onPress, category }) => {
+  const identity = category ? categoryIdentity(category) : null;
+  const color = identity?.color ?? theme.brand[700];
+
+  return (
+    <PressableScale
+      onPress={onPress}
+      scaleTo={0.94}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={[
+        styles.filterChip,
+        active
+          ? { backgroundColor: color, borderColor: color }
+          : { borderColor: withAlpha(color, 0.28), backgroundColor: withAlpha(color, 0.06) },
+      ]}
+    >
+      {identity ? (
+        <Icon name={identity.icon} size={10} color={active ? '#FFFFFF' : color} />
+      ) : null}
+      <Txt
+        variant="micro"
+        color={active ? '#FFFFFF' : color}
+        numberOfLines={1}
+        style={{ fontFamily: theme.fonts.semibold, fontSize: 10 }}
+      >
+        {label}
+      </Txt>
+    </PressableScale>
+  );
+};
+
+const VehicleCard: React.FC<{ vehicle: CompareVehicle }> = ({ vehicle }) => (
+  <Card padding={0} variant="elevated" style={styles.vehicleCard}>
+    <View style={[styles.vehicleAccent, { backgroundColor: vehicle.brandColor }]} />
+    <View style={styles.vehicleImageWrap}>
+      <Image source={{ uri: vehicle.imageUrl }} style={styles.vehicleImage} resizeMode="cover" />
+      <View style={[styles.vehicleBrand, { backgroundColor: vehicle.brandColor }]}>
+        <Txt variant="micro" tone="inverse" style={{ fontFamily: theme.fonts.bold, fontSize: 9 }}>
+          {vehicle.brand.toUpperCase()}
+        </Txt>
+      </View>
+    </View>
+
+    <View style={styles.vehicleInfo}>
+      <Txt variant="captionStrong" numberOfLines={1}>
+        {vehicle.model}
+      </Txt>
+      <Txt variant="micro" tone="faint" numberOfLines={1}>
+        {vehicle.version}
+      </Txt>
+      <View style={styles.vehicleMeta}>
+        <View style={styles.scorePill}>
+          <Icon name="confidence" size={8} color={theme.brand[700]} />
+          <Txt
+            variant="micro"
+            tone="brand"
+            style={{ fontFamily: theme.fonts.bold, fontSize: 9 }}
+          >
+            {vehicle.aiScore}%
+          </Txt>
+        </View>
+        <Txt variant="micro" tone="faint" style={{ fontSize: 9 }}>
+          {vehicle.totalFields} campos
+        </Txt>
+      </View>
+      <Txt variant="captionStrong" tone="brand" numberOfLines={1} style={{ marginTop: 4 }}>
+        {vehicle.priceFrom}
+      </Txt>
+    </View>
+  </Card>
+);
+
+const styles = StyleSheet.create({
+  section: {
+    paddingHorizontal: theme.space[4],
+    marginBottom: theme.space[5],
+  },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: theme.radii.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  toggleActive: {
+    backgroundColor: theme.aqua[500],
+    borderColor: theme.aqua[500],
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    flexGrow: 0,
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: theme.radii.full,
+    borderWidth: 1,
+    borderColor: theme.colors.borderSubtle,
+    backgroundColor: theme.colors.card,
+  },
+  chipSelected: {
+    borderColor: theme.brand[300],
+    backgroundColor: theme.brand[50],
+  },
+  chipDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  // Sangra o carrossel para fora do padding da seção.
+  bleed: {
+    marginHorizontal: -theme.space[4],
+  },
+  bleedContent: {
+    gap: theme.space[2],
+    paddingHorizontal: theme.space[4],
+    alignItems: 'center',
+  },
+  cardsRow: {
+    flexDirection: 'row',
+    gap: theme.space[2],
+  },
+  vehicleCard: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  vehicleAccent: {
+    height: 3,
+  },
+  vehicleImageWrap: {
+    height: 84,
+    backgroundColor: theme.ink[50],
+  },
+  vehicleImage: {
+    width: '100%',
+    height: '100%',
+  },
+  vehicleBrand: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: theme.radii.xs,
+  },
+  vehicleInfo: {
+    padding: theme.space[3],
+    gap: 1,
+  },
+  vehicleMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  scorePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: theme.radii.full,
+    backgroundColor: theme.brand[50],
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[3],
+    marginBottom: theme.space[3],
+  },
+  scoreLabel: {
+    width: 88,
+  },
+  scoreBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[2],
+  },
+  scoreTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.ink[100],
+    overflow: 'hidden',
+  },
+  filterWrap: {
+    backgroundColor: theme.colors.canvas,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderSubtle,
+  },
+  filterContent: {
+    gap: 6,
+    paddingHorizontal: theme.space[4],
+    paddingTop: theme.space[1],
+    paddingBottom: theme.space[3],
+    alignItems: 'center',
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    flexGrow: 0,
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: theme.radii.full,
+    borderWidth: 1,
+    borderColor: theme.colors.borderSubtle,
+    backgroundColor: theme.colors.card,
+  },
+  filterChipActive: {
+    backgroundColor: theme.brand[700],
+    borderColor: theme.brand[700],
+  },
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.space[4],
+    paddingVertical: theme.space[2],
+    backgroundColor: theme.ink[50],
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.borderSubtle,
+  },
+  specSection: {
+    paddingHorizontal: theme.space[4],
+    marginTop: theme.space[5],
+  },
+  specHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: theme.space[2],
+  },
+  specHeadIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: theme.radii.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  specRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.space[3],
+    paddingVertical: theme.space[3],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.borderSubtle,
+  },
+  specLabelCol: {
+    flex: 1.2,
+    paddingRight: theme.space[2],
+  },
+  specValue: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    borderRadius: theme.radii.xs,
+  },
+  specValueWinner: {
+    backgroundColor: theme.colors.successBg,
+  },
+});

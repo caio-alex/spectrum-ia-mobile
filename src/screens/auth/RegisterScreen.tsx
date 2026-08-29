@@ -1,15 +1,6 @@
+// src/screens/auth/RegisterScreen.tsx
 import React, { useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Image,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { styles } from '../../styles/login.styles';
+import { StyleSheet, View } from 'react-native';
 import { useAuth } from '../../contexts';
 import { extractApiErrorMessage } from '../../services/errorHandler';
 import {
@@ -18,7 +9,19 @@ import {
   validateEmail,
   validateNonEmpty,
   validatePasswordStrength,
+  type PasswordChecks,
 } from '../../services/validation';
+import { theme } from '../../styles/theme';
+import {
+  Button,
+  FormError,
+  Icon,
+  PressableScale,
+  ProgressBar,
+  TextField,
+  Txt,
+} from '../../components/ui';
+import { AuthLayout } from './AuthLayout';
 
 export const RegisterScreen = ({ navigation }: any) => {
   const { signUp } = useAuth();
@@ -90,154 +93,188 @@ export const RegisterScreen = ({ navigation }: any) => {
   const showChecklist = passwordFocused || (password.length > 0 && !checks.allPassed);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.logoIcon}>
-          <Image
-            source={require('../../../assets/spectrum-logo-icone.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-        </View>
-        <View style={styles.logoTextContainer}>
-          <Image
-            source={require('../../../assets/spectrum-logo-texto.png')}
-            style={styles.logoTextImage}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.subTitle}>Análise competitiva automotiva</Text>
-      </View>
+    <AuthLayout title="Criar conta corporativa" compact>
+      <TextField
+        label="Empresa"
+        icon="company"
+        value={companyName}
+        onChangeText={setCompanyName}
+        placeholder="Nome da empresa"
+        maxLength={LIMITS.COMPANY_MAX}
+        editable={!isSubmitting}
+      />
 
-      <View style={styles.formCard}>
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Text style={styles.formTitle}>Criar conta corporativa</Text>
+      <TextField
+        label="Nome completo"
+        icon="profile"
+        value={fullName}
+        onChangeText={setFullName}
+        placeholder="Seu nome completo"
+        maxLength={LIMITS.FULLNAME_MAX}
+        editable={!isSubmitting}
+      />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>EMPRESA</Text>
-            <TextInput
-              style={styles.input}
-              value={companyName}
-              onChangeText={setCompanyName}
-              placeholder="Nome da empresa"
-              maxLength={LIMITS.COMPANY_MAX}
-              editable={!isSubmitting}
-            />
-          </View>
+      <TextField
+        label="E-mail corporativo"
+        icon="email"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="exemplo@empresa.com"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        autoComplete="email"
+        maxLength={LIMITS.EMAIL_MAX}
+        editable={!isSubmitting}
+      />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>NOME COMPLETO</Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Seu nome completo"
-              maxLength={LIMITS.FULLNAME_MAX}
-              editable={!isSubmitting}
-            />
-          </View>
+      <TextField
+        label="Senha"
+        icon="lock"
+        revealable
+        value={password}
+        onChangeText={setPassword}
+        onFocus={() => setPasswordFocused(true)}
+        onBlur={() => setPasswordFocused(false)}
+        placeholder="••••••••••"
+        autoCapitalize="none"
+        autoComplete="password-new"
+        maxLength={LIMITS.PASSWORD_MAX}
+        editable={!isSubmitting}
+        containerStyle={{ marginBottom: showChecklist ? theme.space[2] : theme.space[4] }}
+      />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>E-MAIL CORPORATIVO</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="exemplo@empresa.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              maxLength={LIMITS.EMAIL_MAX}
-              editable={!isSubmitting}
-            />
-          </View>
+      {showChecklist ? <PasswordStrength checks={checks} /> : null}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>SENHA</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-              placeholder="••••••••••"
-              autoCapitalize="none"
-              autoComplete="password-new"
-              maxLength={LIMITS.PASSWORD_MAX}
-              editable={!isSubmitting}
-            />
-          </View>
+      <FormError message={error} />
 
-          {showChecklist ? <PasswordChecklist checks={checks} /> : null}
+      <Button
+        label="Criar conta"
+        size="lg"
+        onPress={() => void handleSubmit()}
+        loading={isSubmitting}
+        icon="forward"
+        iconPosition="trailing"
+      />
 
-          {error ? (
-            <Text style={{ color: '#c0392b', marginBottom: 12, marginTop: 4 }}>{error}</Text>
-          ) : null}
+      <View style={{ height: theme.space[5] }} />
 
-          <TouchableOpacity
-            style={[styles.button, isSubmitting && { opacity: 0.6 }]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Cadastrar</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => navigation.replace('Login')} disabled={isSubmitting}>
-            <Text style={styles.forgotPassword}>Já tenho conta — entrar</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    </SafeAreaView>
+      <PressableScale
+        onPress={() => navigation.replace('Login')}
+        disabled={isSubmitting}
+        scaleTo={0.97}
+        style={{ alignItems: 'center', paddingVertical: theme.space[2] }}
+      >
+        <Txt variant="caption" tone="muted">
+          Já tem conta?{' '}
+          <Txt variant="captionStrong" tone="accent">
+            Entrar
+          </Txt>
+        </Txt>
+      </PressableScale>
+    </AuthLayout>
   );
 };
 
-interface PasswordChecklistProps {
-  checks: ReturnType<typeof evaluatePasswordChecks>;
-}
+/* ── Medidor de força ────────────────────────────────────────────────────── */
 
-const PasswordChecklist: React.FC<PasswordChecklistProps> = ({ checks }) => {
-  const items: Array<{ key: keyof typeof checks; label: string }> = [
-    { key: 'length', label: `Pelo menos ${LIMITS.PASSWORD_MIN} caracteres` },
-    { key: 'lower', label: 'Letra minúscula' },
-    { key: 'upper', label: 'Letra maiúscula' },
-    { key: 'digit', label: 'Número' },
-    { key: 'special', label: 'Caractere especial (!@#$ etc.)' },
-    { key: 'noRepeat', label: 'Sem 3 caracteres iguais seguidos' },
-    { key: 'noTrivial', label: 'Sem sequências (1234, abcd, qwerty)' },
-    { key: 'notCommon', label: 'Não é uma senha comum' },
-    { key: 'notUserData', label: 'Não contém seu nome ou e-mail' },
-  ];
+type CheckKey = Exclude<keyof PasswordChecks, 'allPassed'>;
+
+const CHECK_ITEMS: Array<{ key: CheckKey; label: string }> = [
+  { key: 'length', label: `${LIMITS.PASSWORD_MIN}+ caracteres` },
+  { key: 'lower', label: 'Minúscula' },
+  { key: 'upper', label: 'Maiúscula' },
+  { key: 'digit', label: 'Número' },
+  { key: 'special', label: 'Símbolo' },
+  { key: 'noRepeat', label: 'Sem repetições' },
+  { key: 'noTrivial', label: 'Sem sequências' },
+  { key: 'notCommon', label: 'Não é senha comum' },
+  { key: 'notUserData', label: 'Sem seus dados' },
+];
+
+/**
+ * Barra de força + os requisitos ainda pendentes.
+ *
+ * A lista anterior mostrava as nove regras o tempo todo, sempre. Aqui a barra
+ * responde ao que já foi conquistado e a lista some conforme cada item é
+ * atendido — o usuário vê o caminho encurtar em vez de encarar um paredão.
+ */
+const PasswordStrength: React.FC<{ checks: PasswordChecks }> = ({ checks }) => {
+  const passed = CHECK_ITEMS.filter((item) => checks[item.key]).length;
+  const ratio = passed / CHECK_ITEMS.length;
+  const pending = CHECK_ITEMS.filter((item) => !checks[item.key]);
+
+  const verdict =
+    ratio >= 1 ? 'Senha forte' : ratio >= 0.7 ? 'Quase lá' : ratio >= 0.4 ? 'Fraca' : 'Muito fraca';
+
   return (
-    <View
-      style={{
-        marginTop: 4,
-        marginBottom: 12,
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-        backgroundColor: '#f5f5f7',
-        borderRadius: 8,
-      }}
-    >
-      {items.map((item) => {
-        const ok = checks[item.key];
-        return (
-          <Text
-            key={item.key}
-            style={{
-              fontSize: 12,
-              color: ok ? '#1f7a3d' : '#7a7a86',
-              marginVertical: 2,
-            }}
-          >
-            {ok ? '✓' : '○'}  {item.label}
-          </Text>
-        );
-      })}
+    <View style={styles.strength}>
+      <View style={styles.strengthHead}>
+        <Txt variant="micro" style={{ fontFamily: theme.fonts.semibold }}>
+          {verdict}
+        </Txt>
+        <Txt variant="micro" tone="faint">
+          {passed}/{CHECK_ITEMS.length}
+        </Txt>
+      </View>
+      <ProgressBar progress={ratio} height={5} trackColor={theme.ink[100]} />
+
+      {pending.length > 0 ? (
+        <View style={styles.pendingWrap}>
+          {pending.map((item) => (
+            <View key={item.key} style={styles.pendingChip}>
+              <Icon name="close" size={8} color={theme.ink[400]} />
+              <Txt variant="micro" tone="faint" style={{ fontSize: 10 }}>
+                {item.label}
+              </Txt>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={[styles.pendingWrap, { marginTop: theme.space[2] }]}>
+          <View style={[styles.pendingChip, styles.pendingChipOk]}>
+            <Icon name="check" size={8} color={theme.colors.success} />
+            <Txt variant="micro" tone="success" style={{ fontSize: 10 }}>
+              Todos os requisitos atendidos
+            </Txt>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  strength: {
+    backgroundColor: theme.ink[50],
+    borderRadius: theme.radii.sm,
+    padding: theme.space[3],
+    marginBottom: theme.space[4],
+    gap: theme.space[2],
+  },
+  strengthHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pendingWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 2,
+  },
+  pendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.ink[100],
+    borderRadius: theme.radii.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  pendingChipOk: {
+    backgroundColor: theme.colors.successBg,
+    borderColor: '#B9E8D8',
+  },
+});
