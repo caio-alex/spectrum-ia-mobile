@@ -25,6 +25,9 @@ interface RouteParams {
   model: string;
   trim: string;
   year: number;
+  /** Sessão à qual a pesquisa será vinculada (POST /v1/searches#sessionId). */
+  sessionId: string;
+  sessionName?: string;
 }
 
 interface Props {
@@ -99,6 +102,8 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
       year: params.year,
       categories: categoryNames,
       categoryKeys,               // enviado ao back-end (POST /v1/searches#categories)
+      sessionId: params.sessionId,
+      sessionName: params.sessionName,
     });
   }, [selected, params, navigation]);
 

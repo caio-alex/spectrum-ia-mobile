@@ -242,16 +242,11 @@ export const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    boxShadow: '0px 6px 12px rgba(0, 24, 129, 0.35)',
   },
   startBtnDisabled: {
     backgroundColor: theme.colors.border,
-    shadowOpacity: 0,
-    elevation: 0,
+    boxShadow: 'none',
   },
   startBtnText: {
     color: '#fff',

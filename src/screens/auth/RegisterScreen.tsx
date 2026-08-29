@@ -64,13 +64,14 @@ export const RegisterScreen = ({ navigation }: any) => {
     setError(null);
     setIsSubmitting(true);
     try {
+      // Sem navegação manual: RootNavigation troca a pilha de auth pela pilha
+      // do app assim que `signed` vira true (renderização condicional).
       await signUp({
         companyName: trimmedCompany,
         fullName: trimmedName,
         email: trimmedEmail,
         password,
       });
-      navigation.replace('MainTabs');
     } catch (err) {
       setError(
         extractApiErrorMessage(err, {

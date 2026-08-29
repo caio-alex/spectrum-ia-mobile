@@ -11,14 +11,15 @@ Aplicativo mobile (React Native + Expo) do projeto **Spectrum AI** — uma plata
 
 ## Sobre o projeto
 
-O Spectrum AI Mobile é o cliente mobile que consome a API do Spectrum AI (`https://spectrum-ai-api.onrender.com`) e oferece as seguintes funcionalidades principais:
+O Spectrum AI Mobile é o cliente mobile que consome a API do Spectrum AI (`https://spectrum-ai-api-rest-production.up.railway.app`) e oferece as seguintes funcionalidades principais:
 
 - **Autenticação** com login e registro de usuários, com armazenamento seguro de credenciais (`expo-secure-store`).
 - **Home** com perfil do usuário, estatísticas rápidas e pesquisas recentes.
-- **Pesquisa de veículos** organizada por categorias.
+- **Sessões de análise**: toda pesquisa pertence a uma sessão (nome livre, vinculada ao tenant e ao usuário criador). É possível criar sessões pela Home, pela aba Sessões ou no meio do fluxo de pesquisa.
+- **Pesquisa de veículos** organizada por categorias, sempre vinculada a uma sessão.
 - **Comparação de veículos** lado a lado, com detalhamento campo a campo.
 - **Tela de resultados** alimentada por Server-Sent Events (SSE) para acompanhamento em tempo real do processamento da IA.
-- **Histórico de sessões** persistido na API.
+- **Histórico de sessões** persistido na API, com nome, data de criação e as pesquisas de cada sessão.
 
 ## Stack tecnológica
 
@@ -47,6 +48,7 @@ src/
 │   ├── auth/      # LoginScreen, RegisterScreen
 │   ├── home/      # HomeScreen
 │   ├── search/    # CategoriesScreen, SearchScreen, ProcessingScreen
+│   ├── sessions/  # SessionsScreen, SessionDetailScreen
 │   ├── compare/   # CompareScreen
 │   └── result/    # ResultScreen, FieldDetailScreen
 ├── services/      # Camada de comunicação com a API (auth, searches, sse, etc.)
@@ -71,7 +73,7 @@ npm install
 
 ## Configuração de ambiente
 
-A URL da API é controlada pela variável de ambiente `EXPO_PUBLIC_API_URL`. Caso não seja definida, o app aponta por padrão para `https://spectrum-ai-api.onrender.com`.
+A URL da API é controlada pela variável de ambiente `EXPO_PUBLIC_API_URL`. Caso não seja definida, o app aponta por padrão para `https://spectrum-ai-api-rest-production.up.railway.app`.
 
 Para apontar para uma API local em desenvolvimento, crie um arquivo `.env` na raiz do projeto:
 

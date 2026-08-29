@@ -38,8 +38,9 @@ export const LoginScreen = ({ navigation }: any) => {
     setError(null);
     setIsSubmitting(true);
     try {
+      // Sem navegação manual: RootNavigation troca a pilha de auth pela pilha
+      // do app assim que `signed` vira true (renderização condicional).
       await signIn({ email: email.trim(), password });
-      navigation.replace('MainTabs');
     } catch (err) {
       setError(
         extractApiErrorMessage(err, {
