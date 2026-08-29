@@ -1,5 +1,7 @@
 import { api } from './api';
 import type {
+  ExportFormat,
+  ExportResponse,
   PageResponse,
   SearchEnqueuedResponse,
   SearchRequest,
@@ -31,12 +33,8 @@ export async function listSearches(
   return data;
 }
 
-export interface ExportResponse {
-  downloadUrl: string;
-  expiresAt: string;
-}
-
-export type ExportFormat = 'pdf' | 'csv';
+// Reexportados para não quebrar quem já importava os tipos daqui.
+export type { ExportFormat, ExportResponse } from '../types/api';
 
 export async function getExportUrl(
   searchId: string,

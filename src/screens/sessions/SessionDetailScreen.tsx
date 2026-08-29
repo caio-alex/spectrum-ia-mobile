@@ -1,11 +1,13 @@
 // src/screens/sessions/SessionDetailScreen.tsx
 //
-// DETALHE DA SESSÃO — pesquisas já realizadas (GET /v1/searches?sessionId=...)
-// e atalho para uma nova pesquisa já vinculada a esta sessão.
+// DETALHE DA SESSÃO — pesquisas já realizadas (GET /v1/searches?sessionId=...),
+// atalho para uma nova pesquisa já vinculada a esta sessão e exportação do
+// comparativo completo (GET /v1/sessions/{id}/export).
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -18,14 +20,34 @@ import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../styles/theme';
 import { styles } from '../../styles/sessionsScreen.styles';
 import { SearchCard } from '../../components/SearchCard';
+import { ExportSheet } from '../../components/ExportSheet';
 import { useSession } from '../../hooks/useSessions';
 import { useSessionSearches } from '../../hooks/useSearches';
 import { useSearchCards } from '../../hooks/useSearchCards';
 import { extractApiErrorMessage } from '../../services/errorHandler';
+import { getSessionExportUrl } from '../../services/sessions';
 import { formatDate } from '../../utils/date';
 import type { RecentSearch } from '../../mocks/homeData';
+import type { ExportFormat } from '../../types/api';
 
 const PAGE_SIZE = 50;
+
+// Mesmas opções da exportação de uma pesquisa, com o texto ajustado para o
+// escopo da sessão — hoje só o CSV é gerado pelo backend; o PDF responde 501.
+const EXPORT_OPTIONS = [
+  {
+    format: 'pdf' as ExportFormat,
+    icon: '📄',
+    title: 'Baixar PDF',
+    subtitle: 'Relatório formatado, pronto para leitura',
+  },
+  {
+    format: 'csv' as ExportFormat,
+    icon: '📊',
+    title: 'Baixar CSV',
+    subtitle: 'Todos os veículos da sessão em uma única planilha',
+  },
+];
 
 interface RouteParams {
   sessionId: string;
@@ -73,6 +95,42 @@ export const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     [navigation],
   );
 
+  // ── Exportação da sessão inteira ────────────────────────────────────────
+  const [exportVisible, setExportVisible] = useState(false);
+  const [isExporting, setIsExporting] = useState<ExportFormat | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const openExportSheet = useCallback(() => {
+    setExportError(null);
+    setExportVisible(true);
+  }, []);
+
+  const handleExport = useCallback(
+    async (format: ExportFormat) => {
+      if (!sessionId || isExporting) return;
+      setIsExporting(format);
+      setExportError(null);
+      try {
+        const { downloadUrl } = await getSessionExportUrl(sessionId, format);
+        await Linking.openURL(downloadUrl);
+        setExportVisible(false);
+      } catch (err) {
+        setExportError(
+          extractApiErrorMessage(err, {
+            fallback: 'Não foi possível gerar o arquivo da sessão. Tente novamente.',
+            byStatus: {
+              403: 'Seu perfil não permite exportar sessões.',
+              501: 'Exportação em PDF ainda não está disponível.',
+            },
+          }),
+        );
+      } finally {
+        setIsExporting(null);
+      }
+    },
+    [sessionId, isExporting],
+  );
+
   if (!sessionId) {
     navigation?.goBack?.();
     return null;
@@ -96,6 +154,14 @@ export const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <Text style={styles.headerSessionName} numberOfLines={2}>
             {sessionName}
           </Text>
+          <TouchableOpacity
+            style={styles.headerActionBtn}
+            onPress={openExportSheet}
+            activeOpacity={0.7}
+            accessibilityLabel="Exportar sessão"
+          >
+            <Text style={styles.headerActionIcon}>⬇️</Text>
+          </TouchableOpacity>
         </View>
         <Text style={styles.headerSubtitle}>
           {session ? `Criada em ${formatDate(session.createdAt)}` : 'Carregando sessão...'}
@@ -170,6 +236,17 @@ export const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           ))
         )}
       </ScrollView>
+
+      <ExportSheet
+        visible={exportVisible}
+        isExporting={isExporting}
+        errorMessage={exportError}
+        title="Exportar sessão"
+        subtitle="Um único arquivo com a ficha técnica de todos os veículos desta sessão"
+        options={EXPORT_OPTIONS}
+        onClose={() => setExportVisible(false)}
+        onSelect={handleExport}
+      />
     </SafeAreaView>
   );
 };

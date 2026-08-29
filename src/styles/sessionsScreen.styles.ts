@@ -47,6 +47,14 @@ export const styles = StyleSheet.create({
     letterSpacing: -0.3,
     flex: 1,
   },
+  headerActionBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    padding: 8,
+    borderRadius: 8,
+  },
+  headerActionIcon: {
+    fontSize: 18,
+  },
 
   // ── Corpo ─────────────────────────────────────────────────────────────
   body: {
