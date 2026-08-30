@@ -21,10 +21,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  KeyboardAvoidingView,
   Modal,
   PanResponder,
-  Platform,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -34,6 +32,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
+import { KeyboardAvoider } from './Keyboard';
 import { Txt } from './Txt';
 
 const OFFSET = 560;
@@ -171,12 +170,7 @@ export const Sheet: React.FC<Props> = ({
           />
         </Animated.View>
         {avoidKeyboard ? (
-          <KeyboardAvoidingView
-            style={styles.keyboardWrap}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            {body}
-          </KeyboardAvoidingView>
+          <KeyboardAvoider style={styles.keyboardWrap}>{body}</KeyboardAvoider>
         ) : (
           body
         )}

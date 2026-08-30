@@ -20,14 +20,16 @@
 // oposto: o botão encostava no rodapé, sem respiro. Daí o teto — o banner cresce
 // até a fração definida em BANNER_MAX_RATIO, e o que sobra vira espaço branco no
 // fim da folha, onde não atrapalha ninguém.
+//
+// Com o TECLADO ABERTO a conta muda: o banner abre mão do mínimo e encolhe até o
+// tamanho da logo. A marca cede espaço para a tarefa — é a única hora em que o
+// usuário não está olhando para ela.
 
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -35,6 +37,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
+import { KeyboardAvoider, useKeyboardVisible } from '../../components/ui/Keyboard';
 import { ScanGrid, SpectrumRay } from '../../components/ui/Spectrum';
 import { Screen } from '../../components/ui/Screen';
 import { Txt } from '../../components/ui/Txt';
@@ -61,6 +64,7 @@ interface Props {
 export const AuthLayout: React.FC<Props> = ({ title, children, compact = false }) => {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
+  const keyboardVisible = useKeyboardVisible();
   const enter = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -74,10 +78,7 @@ export const AuthLayout: React.FC<Props> = ({ title, children, compact = false }
 
   return (
     <Screen background={theme.brand[900]}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoider style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
@@ -91,12 +92,14 @@ export const AuthLayout: React.FC<Props> = ({ title, children, compact = false }
             style={[
               styles.banner,
               {
-                minHeight: compact ? 168 : 232,
+                // Sem piso enquanto o teclado está aberto: o banner encolhe até
+                // o tamanho da logo e devolve a tela inteira ao formulário.
+                minHeight: keyboardVisible ? 0 : compact ? 168 : 232,
                 maxHeight: Math.round(
                   windowHeight * (compact ? BANNER_MAX_RATIO.compact : BANNER_MAX_RATIO.default),
                 ),
-                paddingTop: insets.top + theme.space[5],
-                paddingBottom: theme.space[6],
+                paddingTop: insets.top + (keyboardVisible ? theme.space[3] : theme.space[5]),
+                paddingBottom: keyboardVisible ? theme.space[3] : theme.space[6],
               },
             ]}
           >
@@ -141,7 +144,7 @@ export const AuthLayout: React.FC<Props> = ({ title, children, compact = false }
             </View>
           </Animated.View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Screen>
   );
 };

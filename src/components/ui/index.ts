@@ -36,6 +36,7 @@ export {
   useReducedMotion,
 } from './Spectrum';
 export { Screen, ScreenHeader, BottomInset } from './Screen';
+export { KeyboardAvoider, useKeyboardVisible } from './Keyboard';
 export { Sheet } from './Sheet';
 export { ConfirmSheet } from './ConfirmSheet';
 export { Field, TextField, SelectRow } from './Field';
