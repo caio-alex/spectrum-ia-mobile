@@ -1,28 +1,28 @@
 {
   "expo": {
-    "name": "spectrum-ia-mobile",
+    "name": "Spectrum AI",
     "slug": "spectrum-ia-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-spectrumai.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon-spectrumai.png",
       "resizeMode": "contain",
-      "backgroundColor": "#00114F"
+      "backgroundColor": "#001881"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#00114F"
+        "foregroundImage": "./assets/icon-spectrumai.png",
+        "backgroundColor": "#001881"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.caioalexx.spectrumiamobile"
+      "package": "com.aevumsystems.spectrumai"
     },
     "web": {
       "favicon": "./assets/favicon.png"
