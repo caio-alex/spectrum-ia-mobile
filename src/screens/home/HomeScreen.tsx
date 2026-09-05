@@ -83,6 +83,11 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   );
   const cards = useSearchCards(visibleSummaries);
 
+  // "Campos" saiu daqui. Na abertura do app ele não responde a nenhuma pergunta
+  // que o usuário esteja se fazendo — e ainda somava só as pesquisas da primeira
+  // página carregada, então o número nem era o total de verdade. A contagem de
+  // campos continua onde ela significa alguma coisa: no resultado da pesquisa e
+  // no detalhe da sessão.
   const stats = useMemo(
     () => [
       {
@@ -91,17 +96,12 @@ export const HomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         label: 'Pesquisas',
       },
       {
-        icon: 'fields' as IconName,
-        value: cards.reduce((sum, c) => sum + c.totalFields, 0),
-        label: 'Campos',
-      },
-      {
         icon: 'sessions' as IconName,
         value: sessionsQuery.data?.totalElements ?? 0,
         label: 'Sessões',
       },
     ],
-    [recentSearchesQuery.data, cards, sessionsQuery.data],
+    [recentSearchesQuery.data, sessionsQuery.data],
   );
 
   const handleSearchPress = useCallback(
