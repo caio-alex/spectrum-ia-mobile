@@ -21,7 +21,8 @@
         "backgroundColor": "#00114F"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.caioalexx.spectrumiamobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,6 +30,11 @@
     "backgroundColor": "#FAFBFE",
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0da0f851-9e42-4dc0-b04f-d6c90bf1cca8"
+      }
+    }
   }
 }
