@@ -28,6 +28,7 @@ import {
   EmptyState,
   ErrorState,
   Icon,
+  KeyboardAvoider,
   PressableScale,
   Screen,
   ScreenHeader,
@@ -35,6 +36,7 @@ import {
   Sheet,
   SkeletonList,
   Stepper,
+  SwitchRow,
   TextField,
   Txt,
 } from '../../components/ui';
@@ -69,6 +71,17 @@ export const SearchScreen = ({ navigation, route }: any) => {
   const [selectedTrim, setSelectedTrim] = useState<string | null>(null);
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const [query, setQuery] = useState('');
+
+  // Busca personalizada: o catálogo não cobre todo carro que aparece (importado,
+  // versão recém-lançada, frota). Com o interruptor ligado os quatro campos
+  // viram texto livre; desligado, tudo volta ao fluxo encadeado de seletores.
+  // Os dois conjuntos de estado convivem — alternar não apaga o que foi digitado
+  // nem o que foi selecionado.
+  const [customEnabled, setCustomEnabled] = useState(false);
+  const [customBrand, setCustomBrand] = useState('');
+  const [customModel, setCustomModel] = useState('');
+  const [customYear, setCustomYear] = useState('');
+  const [customTrim, setCustomTrim] = useState('');
 
   // Identidade da sessão ativa: o objeto completo quando escolhido no sheet,
   // senão o par id/nome recebido por navegação.
@@ -110,34 +123,68 @@ export const SearchScreen = ({ navigation, route }: any) => {
     setPickerMode(null);
   }, []);
 
+  const handleToggleCustom = useCallback((next: boolean) => {
+    setCustomEnabled(next);
+    setPickerMode(null);
+  }, []);
+
   const handleSelectSession = useCallback((selected: SessionResponse) => {
     setSession(selected);
     setSessionPickerVisible(false);
   }, []);
 
-  const canContinue =
-    !!sessionId && !!selectedBrand && !!selectedModel && !!selectedYear && !!selectedTrim;
-
-  const handleContinue = useCallback(() => {
-    if (!canContinue) return;
-    navigation?.navigate('Categories', {
-      brand: selectedBrand,
-      model: selectedModel!.name,
-      trim: selectedTrim,
-      year: selectedYear,
-      sessionId,
-      sessionName,
-    });
+  // Valores efetivos do veículo, venham do seletor ou do texto livre. Daqui
+  // para frente (validação, cartão de conferência, navegação) o modo some.
+  const vehicle = useMemo(() => {
+    if (!customEnabled) {
+      return {
+        brand: selectedBrand,
+        model: selectedModel?.name ?? null,
+        trim: selectedTrim,
+        year: selectedYear,
+      };
+    }
+    const yearDigits = customYear.trim();
+    return {
+      brand: customBrand.trim() || null,
+      model: customModel.trim() || null,
+      trim: customTrim.trim() || null,
+      // Ano segue sendo número na API: só vale quando são 4 dígitos.
+      year: /^\d{4}$/.test(yearDigits) ? Number(yearDigits) : null,
+    };
   }, [
-    canContinue,
+    customEnabled,
     selectedBrand,
     selectedModel,
     selectedTrim,
     selectedYear,
-    sessionId,
-    sessionName,
-    navigation,
+    customBrand,
+    customModel,
+    customTrim,
+    customYear,
   ]);
+
+  // Erro só aparece depois que o usuário digitou algo — avisar num campo vazio
+  // que ainda vai ser preenchido é ruído.
+  const customYearError =
+    customEnabled && customYear.trim().length > 0 && vehicle.year === null
+      ? 'Informe o ano com 4 dígitos.'
+      : null;
+
+  const canContinue =
+    !!sessionId && !!vehicle.brand && !!vehicle.model && !!vehicle.year && !!vehicle.trim;
+
+  const handleContinue = useCallback(() => {
+    if (!canContinue) return;
+    navigation?.navigate('Categories', {
+      brand: vehicle.brand,
+      model: vehicle.model,
+      trim: vehicle.trim,
+      year: vehicle.year,
+      sessionId,
+      sessionName,
+    });
+  }, [canContinue, vehicle, sessionId, sessionName, navigation]);
 
   const sortedYears = useMemo(() => {
     if (!selectedModel) return [];
@@ -225,95 +272,153 @@ export const SearchScreen = ({ navigation, route }: any) => {
         />
       </ScreenHeader>
 
-      <ScrollView
-        contentContainerStyle={styles.body}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <SelectRow
-          label="Sessão"
-          icon="sessions"
-          placeholder="Selecione ou crie uma sessão"
-          value={sessionName}
-          subValue={session ? `Criada em ${formatDate(session.createdAt)}` : undefined}
-          onPress={() => setSessionPickerVisible(true)}
-        />
+      {/* Com a busca personalizada ligada há quatro campos de digitação e um
+          rodapé fixo: sem isto o teclado cobre "Ano" e "Versão". */}
+      <KeyboardAvoider style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={styles.body}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <SelectRow
+            label="Sessão"
+            icon="sessions"
+            placeholder="Selecione ou crie uma sessão"
+            value={sessionName}
+            subValue={session ? `Criada em ${formatDate(session.createdAt)}` : undefined}
+            onPress={() => setSessionPickerVisible(true)}
+          />
 
-        <SelectRow
-          label="Marca"
-          icon="vehicle"
-          placeholder="Selecione a marca"
-          value={selectedBrand}
-          loading={brandsQuery.isLoading}
-          onPress={() => setPickerMode('brand')}
-        />
-        <SelectRow
-          label="Modelo"
-          icon="fields"
-          placeholder={selectedBrand ? 'Selecione o modelo' : 'Escolha a marca primeiro'}
-          value={selectedModel?.name}
-          disabled={!selectedBrand}
-          onPress={() => setPickerMode('model')}
-        />
-        <SelectRow
-          label="Ano"
-          icon="date"
-          placeholder={selectedModel ? 'Selecione o ano' : 'Escolha o modelo primeiro'}
-          value={selectedYear ? String(selectedYear) : undefined}
-          disabled={!selectedModel}
-          onPress={() => setPickerMode('year')}
-        />
-        <SelectRow
-          label="Versão"
-          icon="catEngine"
-          placeholder={selectedYear ? 'Selecione a versão' : 'Escolha o ano primeiro'}
-          value={selectedTrim}
-          disabled={!selectedYear}
-          onPress={() => setPickerMode('trim')}
-        />
+          <SwitchRow
+            label="Habilitar busca personalizada"
+            icon="search"
+            value={customEnabled}
+            onValueChange={handleToggleCustom}
+          />
 
-        {/* Cartão de conferência — aparece assim que dá para identificar o carro. */}
-        {selectedBrand && selectedModel ? (
-          <Card variant="brand" style={styles.preview}>
-            <View style={styles.previewIcon}>
-              <Icon name="vehicle" size={18} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Txt variant="micro" tone="muted" uppercase style={{ letterSpacing: 1 }}>
-                {selectedBrand}
-              </Txt>
-              <Txt variant="title3" numberOfLines={1}>
-                {selectedModel.name}
-                {selectedTrim ? ` ${selectedTrim}` : ''}
-              </Txt>
-              {selectedYear ? <Badge label={String(selectedYear)} tone="brand" size="sm" /> : null}
-            </View>
-          </Card>
-        ) : (
-          <Callout tone="tip" style={{ marginTop: theme.space[2] }}>
-            Escolha a versão mais próxima da que você quer comparar com os seus modelos — é ela
-            que define a ficha técnica que a IA vai buscar.
-          </Callout>
-        )}
-      </ScrollView>
+          {customEnabled ? (
+            <>
+              <TextField
+                label="Marca"
+                icon="vehicle"
+                placeholder="Digite a marca..."
+                value={customBrand}
+                onChangeText={setCustomBrand}
+                autoCorrect={false}
+                containerStyle={styles.customField}
+              />
+              <TextField
+                label="Modelo"
+                icon="fields"
+                placeholder="Digite o modelo..."
+                value={customModel}
+                onChangeText={setCustomModel}
+                autoCorrect={false}
+                containerStyle={styles.customField}
+              />
+              <TextField
+                label="Ano"
+                icon="date"
+                placeholder="Digite o ano..."
+                value={customYear}
+                onChangeText={(text) => setCustomYear(text.replace(/[^0-9]/g, '').slice(0, 4))}
+                keyboardType="number-pad"
+                maxLength={4}
+                error={customYearError}
+                containerStyle={styles.customField}
+              />
+              <TextField
+                label="Versão"
+                icon="catEngine"
+                placeholder="Digite a versão..."
+                value={customTrim}
+                onChangeText={setCustomTrim}
+                autoCorrect={false}
+                containerStyle={styles.customField}
+              />
+            </>
+          ) : (
+            <>
+              <SelectRow
+                label="Marca"
+                icon="vehicle"
+                placeholder="Selecione a marca"
+                value={selectedBrand}
+                loading={brandsQuery.isLoading}
+                onPress={() => setPickerMode('brand')}
+              />
+              <SelectRow
+                label="Modelo"
+                icon="fields"
+                placeholder={selectedBrand ? 'Selecione o modelo' : 'Escolha a marca primeiro'}
+                value={selectedModel?.name}
+                disabled={!selectedBrand}
+                onPress={() => setPickerMode('model')}
+              />
+              <SelectRow
+                label="Ano"
+                icon="date"
+                placeholder={selectedModel ? 'Selecione o ano' : 'Escolha o modelo primeiro'}
+                value={selectedYear ? String(selectedYear) : undefined}
+                disabled={!selectedModel}
+                onPress={() => setPickerMode('year')}
+              />
+              <SelectRow
+                label="Versão"
+                icon="catEngine"
+                placeholder={selectedYear ? 'Selecione a versão' : 'Escolha o ano primeiro'}
+                value={selectedTrim}
+                disabled={!selectedYear}
+                onPress={() => setPickerMode('trim')}
+              />
+            </>
+          )}
 
-      {/* Barra de ação fixa: o próximo passo fica sempre ao alcance do polegar. */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + theme.space[3] }]}>
-        <Button
-          label={
-            !sessionId
-              ? 'Selecione uma sessão'
-              : canContinue
-                ? 'Continuar'
-                : 'Complete os campos acima'
-          }
-          size="lg"
-          icon={canContinue ? 'forward' : undefined}
-          iconPosition="trailing"
-          onPress={handleContinue}
-          disabled={!canContinue}
-        />
-      </View>
+          {/* Cartão de conferência — aparece assim que dá para identificar o carro. */}
+          {vehicle.brand && vehicle.model ? (
+            <Card variant="brand" style={styles.preview}>
+              <View style={styles.previewIcon}>
+                <Icon name="vehicle" size={18} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="micro" tone="muted" uppercase style={{ letterSpacing: 1 }}>
+                  {vehicle.brand}
+                </Txt>
+                <Txt variant="title3" numberOfLines={1}>
+                  {vehicle.model}
+                  {vehicle.trim ? ` ${vehicle.trim}` : ''}
+                </Txt>
+                {vehicle.year ? (
+                  <Badge label={String(vehicle.year)} tone="brand" size="sm" />
+                ) : null}
+              </View>
+            </Card>
+          ) : (
+            <Callout tone="tip" style={{ marginTop: theme.space[2] }}>
+              Escolha a versão mais próxima da que você quer comparar com os seus modelos — é ela
+              que define a ficha técnica que a IA vai buscar.
+            </Callout>
+          )}
+        </ScrollView>
+
+        {/* Barra de ação fixa: o próximo passo fica sempre ao alcance do polegar. */}
+        <View style={[styles.footer, { paddingBottom: insets.bottom + theme.space[3] }]}>
+          <Button
+            label={
+              !sessionId
+                ? 'Selecione uma sessão'
+                : canContinue
+                  ? 'Continuar'
+                  : 'Complete os campos acima'
+            }
+            size="lg"
+            icon={canContinue ? 'forward' : undefined}
+            iconPosition="trailing"
+            onPress={handleContinue}
+            disabled={!canContinue}
+          />
+        </View>
+      </KeyboardAvoider>
 
       <Sheet
         visible={pickerMode !== null}
@@ -400,6 +505,11 @@ const styles = StyleSheet.create({
     padding: theme.space[4],
     paddingTop: theme.space[5],
     paddingBottom: theme.space[6],
+  },
+  // TextField já reserva espaço para hint/erro; alinha o ritmo vertical ao das
+  // SelectRow para que alternar o modo não faça a tela "pular".
+  customField: {
+    marginBottom: theme.space[3],
   },
   preview: {
     flexDirection: 'row',

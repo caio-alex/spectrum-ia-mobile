@@ -6,8 +6,9 @@
 // da marca e um halo suave. Sem isso o usuário não sabe onde está digitando —
 // era o caso dos inputs antigos, que só tinham uma borda cinza fixa.
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   StyleSheet,
   TextInput,
   View,
@@ -224,6 +225,87 @@ export const SelectRow: React.FC<SelectRowProps> = ({
   );
 };
 
+/* ── SwitchRow ───────────────────────────────────────────────────────────── */
+
+const TRACK_W = 46;
+const TRACK_H = 28;
+const KNOB = 22;
+
+interface SwitchRowProps {
+  label: string;
+  hint?: string;
+  value: boolean;
+  onValueChange: (next: boolean) => void;
+  icon?: IconName;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+}
+
+/**
+ * Interruptor com rótulo. A linha inteira é o alvo de toque — num campo de
+ * formulário, mirar só o trilho de 46px é um atrito desnecessário.
+ */
+export const SwitchRow: React.FC<SwitchRowProps> = ({
+  label,
+  hint,
+  value,
+  onValueChange,
+  icon,
+  disabled = false,
+  style,
+}) => {
+  const progress = useRef(new Animated.Value(value ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: value ? 1 : 0,
+      duration: theme.motion.fast,
+      useNativeDriver: false,
+    }).start();
+  }, [value, progress]);
+
+  const trackColor = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.ink[200], theme.brand[600]],
+  });
+  const knobX = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [3, TRACK_W - KNOB - 3],
+  });
+
+  return (
+    <PressableScale
+      onPress={() => onValueChange(!value)}
+      disabled={disabled}
+      scaleTo={0.99}
+      dimTo={1}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: value, disabled }}
+      style={[styles.switchBox, value && styles.switchBoxOn, style]}
+    >
+      {icon ? (
+        <View style={[styles.selectIcon, value && { backgroundColor: theme.brand[100] }]}>
+          <Icon name={icon} size={14} color={value ? theme.brand[700] : theme.ink[400]} />
+        </View>
+      ) : null}
+      <View style={{ flex: 1, gap: 1 }}>
+        <Txt variant={value ? 'captionStrong' : 'caption'} tone={disabled ? 'faint' : 'default'}>
+          {label}
+        </Txt>
+        {hint ? (
+          <Txt variant="micro" tone="faint">
+            {hint}
+          </Txt>
+        ) : null}
+      </View>
+      <Animated.View style={[styles.track, { backgroundColor: trackColor }]}>
+        <Animated.View style={[styles.knob, { transform: [{ translateX: knobX }] }]} />
+      </Animated.View>
+    </PressableScale>
+  );
+};
+
 const styles = StyleSheet.create({
   labelRow: {
     flexDirection: 'row',
@@ -299,5 +381,36 @@ const styles = StyleSheet.create({
     backgroundColor: theme.ink[100],
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  switchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[3],
+    minHeight: 56,
+    paddingHorizontal: theme.space[4],
+    paddingVertical: theme.space[3],
+    borderRadius: theme.radii.md,
+    borderWidth: 1.5,
+    borderColor: theme.ink[100],
+    backgroundColor: theme.ink[50],
+    marginBottom: theme.space[3],
+  },
+  switchBoxOn: {
+    backgroundColor: theme.colors.card,
+    borderColor: theme.brand[300],
+    ...theme.shadow.xs,
+  },
+  track: {
+    width: TRACK_W,
+    height: TRACK_H,
+    borderRadius: theme.radii.full,
+    justifyContent: 'center',
+  },
+  knob: {
+    width: KNOB,
+    height: KNOB,
+    borderRadius: theme.radii.full,
+    backgroundColor: '#FFFFFF',
+    ...theme.shadow.xs,
   },
 });
