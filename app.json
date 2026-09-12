@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Spectrum AI",
-    "slug": "spectrum-ia-mobile",
+    "slug": "spectrum-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon-spectrumai.png",
@@ -33,8 +33,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "0da0f851-9e42-4dc0-b04f-d6c90bf1cca8"
+        "projectId": "5d0b5117-4681-4497-9ec1-dc7bd1cfe26d"
       }
-    }
+    },
+    "owner": "spectrum-ai"
   }
 }
