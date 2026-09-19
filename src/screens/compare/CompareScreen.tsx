@@ -2,150 +2,283 @@
 //
 // TELA — COMPARAÇÃO DE VEÍCULOS
 //
-// Cards dos veículos analisados e comparação lado a lado das especificações,
-// por categoria, com destaque do melhor valor de cada linha.
+// Roda sobre dados reais: N × GET /v1/searches/{id}/result, montados por
+// `buildComparison` (src/utils/compare.ts, onde moram as regras de negócio).
 //
-// ATENÇÃO: esta tela ainda roda 100% sobre `COMPARE_MOCK_VEHICLES`. Enquanto o
-// backend não expõe um endpoint de comparativo, um aviso explícito no topo diz
-// isso ao usuário — uma tela de análise competitiva com números inventados e
-// sem etiqueta é o tipo de coisa que acaba em slide de cliente.
+// Três decisões que explicam o que está — e o que NÃO está — nesta tela:
 //
-// Integração futura: GET /v1/searches/:id/result para cada veículo da sessão.
+//   • Compara-se a INTERSEÇÃO das categorias, não a igualdade. O que só um dos
+//     veículos pesquisou não some: desce para "Só em <veículo>" no fim.
+//
+//   • Não há aiScore nem nota por categoria. Não existe nada na API para
+//     calculá-los, e o app inteiro se sustenta em procedência declarada —
+//     um "94/100" inventado no topo derruba a credibilidade de tudo abaixo.
+//     No lugar dele vão números derivados: quantos campos são de fato
+//     comparáveis e quantos itens cada veículo tem que o outro não tem.
+//
+//   • O destaque de vencedor é estreito de propósito (ver `resolveWinner`):
+//     numérico só em campos de direção conhecida, mais Sim/Não, e nunca
+//     quando algum dos lados está marcado como ESTIMADO.
+//
+// Sem foto e sem preço: a API não devolve nem um nem outro, e as fotos da
+// versão mocada eram hotlink de CDN de terceiros.
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { useQueries } from '@tanstack/react-query';
 import { theme, withAlpha } from '../../styles/theme';
 import {
   BottomInset,
   Callout,
   Card,
+  ConfidenceBars,
+  EmptyState,
+  ErrorState,
   Icon,
   PressableScale,
   Screen,
   ScreenHeader,
+  SectionHeader,
+  SkeletonList,
   Txt,
   categoryIdentity,
+  toConfidenceKey,
 } from '../../components/ui';
-import {
-  COMPARE_MOCK_VEHICLES,
-  COMPARE_SPEC_CATEGORIES,
-  type CompareVehicle,
-} from '../../mocks/compareData';
+import { useRecentSearches } from '../../hooks/useSearches';
+import { getSearchResult } from '../../services/searches';
+import { buildComparison, vehicleLabel, type CompareCategory, type CompareRow } from '../../utils/compare';
+import type { SearchResultResponse, SearchSummary } from '../../types/api';
 
 const MAX_VEHICLES = 3;
 const MIN_VEHICLES = 2;
+const PAGE_SIZE = 50;
+
+/** Uma cor por coluna — a API não traz cor de marca. */
+const COLUMN_COLORS = [theme.brand[700], theme.hues.teal, theme.hues.magenta];
+
+interface RouteParams {
+  /** Restringe o repertório às pesquisas de uma sessão. */
+  sessionId?: string;
+  sessionName?: string;
+  /** Pré-seleção — usada quando a tela é aberta a partir de um resultado. */
+  searchIds?: string[];
+}
 
 interface Props {
   navigation?: any;
-  route?: { params?: { vehicleIds?: string[] } };
+  route?: { params?: RouteParams };
 }
 
 export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
-  const passedIds = route?.params?.vehicleIds;
+  const params = route?.params;
 
-  const [selectedVehicles, setSelectedVehicles] = useState<CompareVehicle[]>(
-    passedIds
-      ? COMPARE_MOCK_VEHICLES.filter((v) => passedIds.includes(v.id))
-      : COMPARE_MOCK_VEHICLES.slice(0, 2),
+  // Escopo: dentro da sessão de origem, ou todas as pesquisas do usuário.
+  const [scope, setScope] = useState<'session' | 'all'>(params?.sessionId ? 'session' : 'all');
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    () => (params?.searchIds ?? []).slice(0, MAX_VEHICLES),
   );
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [highlightWinner, setHighlightWinner] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [highlight, setHighlight] = useState(true);
+  const [onlyComparable, setOnlyComparable] = useState(false);
 
-  const toggleVehicle = useCallback((vehicle: CompareVehicle) => {
-    setSelectedVehicles((prev) => {
-      const isSelected = prev.some((v) => v.id === vehicle.id);
-      if (isSelected) {
-        if (prev.length <= MIN_VEHICLES) return prev;
-        return prev.filter((v) => v.id !== vehicle.id);
+  const listQuery = useRecentSearches({
+    sessionId: scope === 'session' ? params?.sessionId : undefined,
+    page: 0,
+    size: PAGE_SIZE,
+  });
+
+  // Só pesquisa concluída entra no comparativo: QUEUED/PROCESSING não têm
+  // specs e FAILED não tem o que comparar.
+  const candidates: SearchSummary[] = useMemo(
+    () => (listQuery.data?.content ?? []).filter((item) => item.status === 'COMPLETED'),
+    [listQuery.data],
+  );
+
+  // Completa a seleção com as pesquisas mais recentes até o mínimo de dois.
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const valid = current.filter((id) => candidates.some((c) => c.searchId === id));
+      if (valid.length >= MIN_VEHICLES) return valid.length === current.length ? current : valid;
+      const fill = candidates
+        .map((c) => c.searchId)
+        .filter((id) => !valid.includes(id))
+        .slice(0, MIN_VEHICLES - valid.length);
+      const next = [...valid, ...fill];
+      return next.length === current.length && next.every((id, i) => id === current[i])
+        ? current
+        : next;
+    });
+  }, [candidates]);
+
+  const resultQueries = useQueries({
+    queries: selectedIds.map((id) => ({
+      queryKey: ['searches', 'result', id] as const,
+      queryFn: () => getSearchResult(id),
+      staleTime: 1000 * 60 * 60,
+    })),
+  });
+
+  const results = resultQueries.map((query) => query.data);
+  const resultsLoading = resultQueries.some((query) => query.isLoading);
+  const resultsError = resultQueries.find((query) => query.error)?.error;
+
+  // Assinatura estável para o memo — o array de queries é recriado a cada
+  // render (mesmo padrão já usado em useSearchCards).
+  const signature = resultQueries.map((query) => query.data?.searchId ?? '').join('|');
+  const model = useMemo(
+    () => {
+      const loaded = results.filter(Boolean) as SearchResultResponse[];
+      return loaded.length >= MIN_VEHICLES && loaded.length === selectedIds.length
+        ? buildComparison(loaded, highlight)
+        : null;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [signature, highlight, selectedIds.length],
+  );
+
+  const toggleVehicle = useCallback((searchId: string) => {
+    setSelectedIds((current) => {
+      if (current.includes(searchId)) {
+        return current.length <= MIN_VEHICLES ? current : current.filter((id) => id !== searchId);
       }
-      if (prev.length >= MAX_VEHICLES) return prev;
-      return [...prev, vehicle];
+      return current.length >= MAX_VEHICLES ? current : [...current, searchId];
     });
   }, []);
 
-  const visibleCategories = useMemo(
-    () =>
-      activeCategory === 'all'
-        ? COMPARE_SPEC_CATEGORIES
-        : COMPARE_SPEC_CATEGORIES.filter((c) => c.id === activeCategory),
-    [activeCategory],
+  // A categoria ativa precisa existir no conjunto atual — trocar de veículo
+  // pode remover a categoria que estava filtrada.
+  useEffect(() => {
+    if (activeCategory === 'all') return;
+    if (!model?.categories.some((category) => category.key === activeCategory)) {
+      setActiveCategory('all');
+    }
+  }, [model, activeCategory]);
+
+  const visibleCategories = useMemo(() => {
+    const all = model?.categories ?? [];
+    return activeCategory === 'all' ? all : all.filter((c) => c.key === activeCategory);
+  }, [model, activeCategory]);
+
+  /* ── Estados de exceção ─────────────────────────────────────────────── */
+
+  const header = (subtitle?: string) => (
+    <ScreenHeader
+      onBack={() => navigation?.goBack()}
+      eyebrow="Análise competitiva"
+      title="Comparar"
+      subtitle={subtitle}
+      actions={
+        <PressableScale
+          onPress={() => setHighlight((value) => !value)}
+          scaleTo={0.92}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: highlight }}
+          accessibilityLabel="Destacar melhor valor"
+          style={[styles.toggle, highlight && styles.toggleActive]}
+        >
+          <Icon
+            name="spark"
+            size={11}
+            color={highlight ? theme.brand[900] : theme.colors.onDarkMuted}
+          />
+          <Txt
+            variant="micro"
+            color={highlight ? theme.brand[900] : theme.colors.onDarkMuted}
+            style={{ fontFamily: theme.fonts.semibold, fontSize: 10 }}
+          >
+            Destaques
+          </Txt>
+        </PressableScale>
+      }
+    />
   );
 
-  /** Índice do melhor valor da linha; -1 quando há empate ou valor não numérico. */
-  const getWinner = useCallback((fieldId: string, values: (string | number)[]): number => {
-    const parsed = values.map((v) => parseFloat(String(v).replace(',', '.')));
-    if (parsed.some(Number.isNaN)) return -1;
-    const isLowerBetter = ['consumo_cidade', 'consumo_estrada', 'aceleracao', 'co2'].includes(
-      fieldId,
+  if (listQuery.isLoading) {
+    return (
+      <Screen>
+        {header('Carregando pesquisas…')}
+        <View style={styles.section}>
+          <SkeletonList count={3} />
+        </View>
+      </Screen>
     );
-    const best = isLowerBetter ? Math.min(...parsed) : Math.max(...parsed);
-    return parsed.filter((p) => p === best).length === 1 ? parsed.indexOf(best) : -1;
-  }, []);
+  }
 
-  const colFlex = selectedVehicles.length === 2 ? 1 : 0.72;
+  if (listQuery.error) {
+    return (
+      <Screen>
+        {header()}
+        <ErrorState
+          description="Não foi possível carregar suas pesquisas."
+          onRetry={() => void listQuery.refetch()}
+        />
+      </Screen>
+    );
+  }
+
+  if (candidates.length < MIN_VEHICLES) {
+    return (
+      <Screen>
+        {header()}
+        <EmptyState
+          icon="compare"
+          title="Faltam pesquisas para comparar"
+          description={
+            scope === 'session'
+              ? 'Esta sessão tem menos de duas pesquisas concluídas. Faça outra pesquisa ou compare entre sessões.'
+              : 'A comparação precisa de pelo menos duas pesquisas concluídas.'
+          }
+          actionLabel={scope === 'session' ? 'Ver todas as pesquisas' : 'Nova pesquisa'}
+          onAction={() =>
+            scope === 'session' ? setScope('all') : navigation?.navigate('Search')
+          }
+        />
+      </Screen>
+    );
+  }
+
+  const selectedResults = results.filter(Boolean) as SearchResultResponse[];
+  const colFlex = selectedIds.length === 2 ? 1 : 0.72;
 
   return (
     <Screen>
-      <ScreenHeader
-        onBack={() => navigation?.goBack()}
-        eyebrow="Análise competitiva"
-        title="Comparar"
-        subtitle={`${selectedVehicles.length} veículos lado a lado`}
-        actions={
-          <PressableScale
-            onPress={() => setHighlightWinner((v) => !v)}
-            scaleTo={0.92}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: highlightWinner }}
-            accessibilityLabel="Destacar melhor valor"
-            style={[styles.toggle, highlightWinner && styles.toggleActive]}
-          >
-            <Icon
-              name="spark"
-              size={11}
-              color={highlightWinner ? theme.brand[900] : theme.colors.onDarkMuted}
-            />
-            <Txt
-              variant="micro"
-              color={highlightWinner ? theme.brand[900] : theme.colors.onDarkMuted}
-              style={{ fontFamily: theme.fonts.semibold, fontSize: 10 }}
-            >
-              Destaques
+      {header(`${selectedIds.length} veículos lado a lado`)}
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: theme.space[4] }}>
+        {/* 1 — repertório de veículos */}
+        <View style={styles.section}>
+          <View style={styles.sectionTop}>
+            <Txt variant="label" tone="muted" uppercase style={{ flex: 1 }}>
+              Pesquisas concluídas
             </Txt>
-          </PressableScale>
-        }
-      />
+            {params?.sessionId ? (
+              <PressableScale
+                onPress={() => setScope((value) => (value === 'session' ? 'all' : 'session'))}
+                scaleTo={0.94}
+                accessibilityRole="button"
+                style={styles.scopeToggle}
+              >
+                <Icon name={scope === 'session' ? 'sessionOpen' : 'search'} size={10} color={theme.brand[700]} />
+                <Txt variant="micro" tone="brand" style={{ fontFamily: theme.fonts.semibold, fontSize: 10 }}>
+                  {scope === 'session' ? params.sessionName ?? 'Esta sessão' : 'Todas'}
+                </Txt>
+              </PressableScale>
+            ) : null}
+          </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[4]}
-        contentContainerStyle={{ paddingTop: theme.space[4] }}
-      >
-        {/* 0 — aviso de dados de demonstração */}
-        <View style={styles.section}>
-          <Callout tone="warning" title="Dados de demonstração">
-            Os números abaixo são de exemplo. O comparativo com as suas pesquisas reais entra
-            quando o backend expuser o endpoint de comparação.
-          </Callout>
-        </View>
-
-        {/* 1 — seleção de veículos */}
-        <View style={styles.section}>
-          <Txt variant="label" tone="muted" uppercase style={{ marginBottom: theme.space[3] }}>
-            Veículos analisados
-          </Txt>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.bleed}
             contentContainerStyle={styles.bleedContent}
           >
-            {COMPARE_MOCK_VEHICLES.map((vehicle) => {
-              const selected = selectedVehicles.some((v) => v.id === vehicle.id);
+            {candidates.map((item) => {
+              const index = selectedIds.indexOf(item.searchId);
+              const selected = index >= 0;
               return (
                 <PressableScale
-                  key={vehicle.id}
-                  onPress={() => toggleVehicle(vehicle)}
+                  key={item.searchId}
+                  onPress={() => toggleVehicle(item.searchId)}
                   scaleTo={0.94}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
@@ -154,184 +287,197 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
                   <View
                     style={[
                       styles.chipDot,
-                      { backgroundColor: selected ? vehicle.brandColor : theme.ink[200] },
+                      {
+                        backgroundColor: selected
+                          ? COLUMN_COLORS[index % COLUMN_COLORS.length]
+                          : theme.ink[200],
+                      },
                     ]}
                   />
                   <Txt variant="micro" style={{ fontFamily: theme.fonts.semibold }} numberOfLines={1}>
-                    {vehicle.brand} {vehicle.model}
+                    {item.vehicle?.brand} {item.vehicle?.model}
                   </Txt>
                   {selected ? <Icon name="check" size={9} color={theme.brand[600]} /> : null}
                 </PressableScale>
               );
             })}
           </ScrollView>
+
+          <Txt variant="micro" tone="faint" style={{ marginTop: theme.space[2] }}>
+            Até {MAX_VEHICLES} veículos. Toque para adicionar ou remover.
+          </Txt>
         </View>
 
-        {/* 2 — cards com foto */}
-        <View style={[styles.section, styles.cardsRow]}>
-          {selectedVehicles.map((vehicle) => (
-            <VehicleCard key={vehicle.id} vehicle={vehicle} />
-          ))}
-        </View>
-
-        {/* 3 — avaliação por categoria */}
-        <View style={styles.section}>
-          <Card>
-            <Txt variant="label" tone="muted" uppercase style={{ marginBottom: theme.space[4] }}>
-              Avaliação por categoria
-            </Txt>
-            {['Motor', 'Segurança', 'Tecnologia', 'Conforto', 'Custo-benefício'].map((cat) => (
-              <View key={cat} style={styles.scoreRow}>
-                <Txt variant="micro" tone="muted" style={styles.scoreLabel} numberOfLines={1}>
-                  {cat}
-                </Txt>
-                <View style={{ flex: 1, gap: 5 }}>
-                  {selectedVehicles.map((v) => {
-                    const score = v.categoryScores[cat] ?? 0;
-                    return (
-                      <View key={v.id} style={styles.scoreBarRow}>
-                        <View style={styles.scoreTrack}>
-                          <View
-                            style={{
-                              width: `${score}%`,
-                              height: '100%',
-                              borderRadius: 3,
-                              backgroundColor: v.brandColor,
-                            }}
-                          />
-                        </View>
-                        <Txt
-                          variant="micro"
-                          style={{ fontFamily: theme.fonts.semibold, width: 22, fontSize: 10 }}
-                        >
-                          {score}
-                        </Txt>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-          </Card>
-        </View>
-
-        {/* 4 — filtro de categorias (fica fixo ao rolar) */}
-        <View style={styles.filterWrap}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterContent}
-          >
-            <FilterChip
-              label="Todas"
-              active={activeCategory === 'all'}
-              onPress={() => setActiveCategory('all')}
-            />
-            {COMPARE_SPEC_CATEGORIES.map((cat) => (
-              <FilterChip
-                key={cat.id}
-                label={cat.name}
-                category={cat.name}
-                active={activeCategory === cat.id}
-                onPress={() => setActiveCategory(cat.id)}
-              />
-            ))}
-          </ScrollView>
-          <View style={styles.stickyHeader}>
-            <Txt variant="micro" tone="faint" uppercase style={styles.specLabelCol}>
-              Especificação
-            </Txt>
-            {selectedVehicles.map((v) => (
-              <View key={v.id} style={{ flex: colFlex, alignItems: 'center' }}>
-                <Txt
-                  variant="micro"
-                  color={v.brandColor}
-                  style={{ fontFamily: theme.fonts.bold, fontSize: 10 }}
-                  numberOfLines={1}
-                >
-                  {v.brand}
-                </Txt>
-                <Txt variant="micro" tone="faint" numberOfLines={1} style={{ fontSize: 9 }}>
-                  {v.model}
-                </Txt>
-              </View>
-            ))}
+        {/* 2 — cartões dos veículos escolhidos */}
+        {resultsLoading ? (
+          <View style={styles.section}>
+            <SkeletonList count={2} />
           </View>
-        </View>
-
-        {/* 5+ — tabelas por categoria */}
-        {visibleCategories.map((category) => {
-          const identity = categoryIdentity(category.name);
-          return (
-          <View key={category.id} style={styles.specSection}>
-            <View style={styles.specHead}>
-              <View style={[styles.specHeadIcon, { backgroundColor: withAlpha(identity.color, 0.12) }]}>
-                <Icon name={identity.icon} size={12} color={identity.color} />
-              </View>
-              <Txt variant="captionStrong">{category.name}</Txt>
+        ) : resultsError ? (
+          <View style={styles.section}>
+            <ErrorState
+              description="Não foi possível carregar a ficha de um dos veículos."
+              onRetry={() => resultQueries.forEach((query) => void query.refetch())}
+            />
+          </View>
+        ) : model ? (
+          <>
+            <View style={[styles.section, styles.cardsRow]}>
+              {selectedResults.map((result, index) => (
+                <VehicleCard
+                  key={result.searchId}
+                  result={result}
+                  color={COLUMN_COLORS[index % COLUMN_COLORS.length]}
+                  fields={model.stats.fieldsPerVehicle[index] ?? 0}
+                  exclusive={model.stats.exclusiveFields[index] ?? 0}
+                  onOpen={() => navigation?.navigate('Result', { searchId: result.searchId })}
+                />
+              ))}
             </View>
 
-            <Card padding={0} style={{ overflow: 'hidden' }}>
-              {category.fields.map((field, index) => {
-                const values = selectedVehicles.map((v) => v.specs[field.id] ?? '—');
-                const winnerIdx = highlightWinner ? getWinner(field.id, values) : -1;
-                return (
-                  <View
-                    key={field.id}
-                    style={[
-                      styles.specRow,
-                      index % 2 === 1 && { backgroundColor: theme.ink[25] },
-                      index === category.fields.length - 1 && { borderBottomWidth: 0 },
-                    ]}
+            {/* 3 — o que é comparável, em números derivados (não inventados) */}
+            <View style={styles.section}>
+              <Card>
+                <View style={styles.statRow}>
+                  <Icon name="compare" size={14} color={theme.brand[600]} />
+                  <Txt variant="captionStrong" style={{ flex: 1 }}>
+                    {model.stats.comparableFields} de {model.stats.totalFields} campos comparáveis
+                  </Txt>
+                </View>
+                <Txt variant="micro" tone="muted" style={{ marginTop: 6 }}>
+                  Um campo é comparável quando todos os veículos selecionados trouxeram valor
+                  para ele. Os demais aparecem na tabela com o lado vazio marcado como
+                  “não informado”.
+                </Txt>
+              </Card>
+            </View>
+
+            {/* 4 — categorias fora da interseção */}
+            {model.exclusive.length > 0 ? (
+              <View style={styles.section}>
+                <Callout tone="warning" title="Categorias fora do comparativo">
+                  {model.exclusive.map((category) => {
+                    const owners = category.presentIn
+                      .map((index) => vehicleLabel(selectedResults[index]))
+                      .join(', ');
+                    return `${category.name} — pesquisada só em ${owners}`;
+                  }).join('\n')}
+                  {'\n\n'}Elas ficam listadas no fim da tela, mas não entram lado a lado.
+                </Callout>
+              </View>
+            ) : null}
+
+            {model.categories.length === 0 ? (
+              <View style={styles.section}>
+                <EmptyState
+                  icon="categories"
+                  title="Nenhuma categoria em comum"
+                  description="Estes veículos não têm nenhuma categoria pesquisada em comum, então não há o que colocar lado a lado. Pesquise o segundo veículo usando as mesmas categorias do primeiro."
+                />
+              </View>
+            ) : (
+              <>
+                {/* 5 — filtros */}
+                <View style={styles.filterWrap}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filterContent}
                   >
-                    <Txt variant="micro" tone="muted" style={styles.specLabelCol} numberOfLines={3}>
-                      {field.label}
-                    </Txt>
-                    {values.map((val, i) => {
-                      const isWinner = winnerIdx === i;
-                      const empty = val === '—';
-                      // Vários valores do mock já trazem a unidade embutida
-                      // ("177 cv (E) / 169 cv (G)"). Sem esta checagem saía
-                      // "177 cv (E) / 169 cv (G) cv".
-                      const showUnit =
-                        !!field.unit &&
-                        !empty &&
-                        !String(val).toLowerCase().includes(field.unit.toLowerCase());
-                      return (
-                        <View
-                          key={`${field.id}-${i}`}
-                          style={[
-                            styles.specValue,
-                            { flex: colFlex },
-                            isWinner && styles.specValueWinner,
-                          ]}
-                        >
-                          <Txt
-                            variant="micro"
-                            tone={empty ? 'faint' : 'default'}
-                            numberOfLines={3}
-                            center
-                            style={{
-                              fontFamily: isWinner ? theme.fonts.bold : theme.fonts.medium,
-                              fontSize: 11,
-                            }}
-                          >
-                            {val}
-                            {showUnit ? ` ${field.unit}` : ''}
-                          </Txt>
-                          {isWinner ? (
-                            <Icon name="spark" size={8} color={theme.colors.success} />
-                          ) : null}
-                        </View>
-                      );
-                    })}
+                    <FilterChip
+                      label="Todas"
+                      active={activeCategory === 'all'}
+                      onPress={() => setActiveCategory('all')}
+                    />
+                    {model.categories.map((category) => (
+                      <FilterChip
+                        key={category.key}
+                        label={category.name}
+                        category={category.name}
+                        active={activeCategory === category.key}
+                        onPress={() => setActiveCategory(category.key)}
+                      />
+                    ))}
+                  </ScrollView>
+
+                  <View style={styles.filterActions}>
+                    <PressableScale
+                      onPress={() => setOnlyComparable((value) => !value)}
+                      scaleTo={0.95}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: onlyComparable }}
+                      style={[styles.softToggle, onlyComparable && styles.softToggleActive]}
+                    >
+                      <Icon
+                        name={onlyComparable ? 'checkAll' : 'fields'}
+                        size={10}
+                        color={onlyComparable ? '#FFFFFF' : theme.colors.textMuted}
+                      />
+                      <Txt
+                        variant="micro"
+                        color={onlyComparable ? '#FFFFFF' : theme.colors.textMuted}
+                        style={{ fontFamily: theme.fonts.semibold, fontSize: 10 }}
+                      >
+                        Só campos com par
+                      </Txt>
+                    </PressableScale>
                   </View>
-                );
-              })}
-            </Card>
-          </View>
-          );
-        })}
+
+                  <View style={styles.stickyHeader}>
+                    <Txt variant="micro" tone="faint" uppercase style={styles.labelCol}>
+                      Especificação
+                    </Txt>
+                    {selectedResults.map((result, index) => (
+                      <View key={result.searchId} style={{ flex: colFlex, alignItems: 'center' }}>
+                        <Txt
+                          variant="micro"
+                          color={COLUMN_COLORS[index % COLUMN_COLORS.length]}
+                          style={{ fontFamily: theme.fonts.bold, fontSize: 10 }}
+                          numberOfLines={1}
+                        >
+                          {result.vehicle?.brand}
+                        </Txt>
+                        <Txt variant="micro" tone="faint" numberOfLines={1} style={{ fontSize: 9 }}>
+                          {result.vehicle?.model}
+                        </Txt>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                {/* 6 — tabelas */}
+                {visibleCategories.map((category) => (
+                  <CategoryTable
+                    key={category.key}
+                    category={category}
+                    colFlex={colFlex}
+                    onlyComparable={onlyComparable}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* 7 — o que ficou de fora, por veículo */}
+            {model.exclusive.length > 0 ? (
+              <View style={{ marginTop: theme.space[6] }}>
+                <View style={styles.section}>
+                  <SectionHeader title="Fora da interseção" />
+                  <Txt variant="micro" tone="muted">
+                    Categorias que só um dos veículos pesquisou. Para comparar, refaça a pesquisa
+                    do outro veículo incluindo-as.
+                  </Txt>
+                </View>
+                {model.exclusive.map((category) => (
+                  <ExclusiveCategory
+                    key={category.key}
+                    category={category}
+                    results={selectedResults}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </>
+        ) : null}
 
         <BottomInset extra={theme.space[6]} />
       </ScrollView>
@@ -340,6 +486,206 @@ export const CompareScreen: React.FC<Props> = ({ navigation, route }) => {
 };
 
 /* ── Peças ───────────────────────────────────────────────────────────────── */
+
+const VehicleCard: React.FC<{
+  result: SearchResultResponse;
+  color: string;
+  fields: number;
+  exclusive: number;
+  onOpen: () => void;
+}> = ({ result, color, fields, exclusive, onOpen }) => {
+  const vehicle = result.vehicle;
+  return (
+    <Card padding={0} variant="elevated" style={styles.vehicleCard} onPress={onOpen}>
+      <View style={[styles.vehicleAccent, { backgroundColor: color }]} />
+      <View style={styles.vehicleInfo}>
+        <Txt variant="micro" color={color} style={{ fontFamily: theme.fonts.bold, fontSize: 9 }}>
+          {(vehicle?.brand ?? '').toUpperCase()}
+        </Txt>
+        <Txt variant="captionStrong" numberOfLines={1}>
+          {vehicle?.model}
+        </Txt>
+        <Txt variant="micro" tone="faint" numberOfLines={1}>
+          {[vehicle?.trim, vehicle?.year].filter(Boolean).join(' · ') || '—'}
+        </Txt>
+
+        <View style={styles.vehicleMeta}>
+          <Txt variant="micro" tone="muted" style={{ fontSize: 10 }}>
+            {fields} campos
+          </Txt>
+          {exclusive > 0 ? (
+            <View style={[styles.exclusivePill, { backgroundColor: withAlpha(color, 0.1) }]}>
+              <Txt variant="micro" color={color} style={{ fontFamily: theme.fonts.bold, fontSize: 9 }}>
+                +{exclusive} exclusivos
+              </Txt>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </Card>
+  );
+};
+
+const CategoryTable: React.FC<{
+  category: CompareCategory;
+  colFlex: number;
+  onlyComparable: boolean;
+}> = ({ category, colFlex, onlyComparable }) => {
+  const identity = categoryIdentity(category.name);
+  const rows = onlyComparable ? category.rows.filter((row) => row.comparable) : category.rows;
+
+  return (
+    <View style={styles.specSection}>
+      <View style={styles.specHead}>
+        <View style={[styles.specHeadIcon, { backgroundColor: withAlpha(identity.color, 0.12) }]}>
+          <Icon name={identity.icon} size={12} color={identity.color} />
+        </View>
+        <Txt variant="captionStrong" style={{ flex: 1 }}>
+          {category.name}
+        </Txt>
+        <Txt variant="micro" tone="faint" style={{ fontSize: 10 }}>
+          {category.comparableRows}/{category.rows.length}
+        </Txt>
+      </View>
+
+      {rows.length === 0 ? (
+        <Card>
+          <Txt variant="micro" tone="muted" center>
+            Nenhum campo desta categoria tem valor nos dois veículos.
+          </Txt>
+        </Card>
+      ) : (
+        <Card padding={0} style={{ overflow: 'hidden' }}>
+          {rows.map((row, index) => (
+            <SpecRow
+              key={row.key}
+              row={row}
+              colFlex={colFlex}
+              striped={index % 2 === 1}
+              isLast={index === rows.length - 1}
+            />
+          ))}
+        </Card>
+      )}
+    </View>
+  );
+};
+
+const SpecRow: React.FC<{
+  row: CompareRow;
+  colFlex: number;
+  striped: boolean;
+  isLast: boolean;
+}> = ({ row, colFlex, striped, isLast }) => (
+  <View
+    style={[
+      styles.specRow,
+      striped && { backgroundColor: theme.ink[25] },
+      isLast && { borderBottomWidth: 0 },
+    ]}
+  >
+    <View style={styles.labelCol}>
+      <Txt variant="micro" tone="muted" numberOfLines={3}>
+        {row.label}
+      </Txt>
+      {/* Os dois veículos nomearam o campo de formas diferentes — dizer isso é
+          mais honesto do que esconder atrás de um rótulo só. */}
+      {row.labelsDiverge ? (
+        <Txt variant="micro" tone="faint" style={{ fontSize: 9, marginTop: 2 }} numberOfLines={2}>
+          {row.labels.filter(Boolean).join(' · ')}
+        </Txt>
+      ) : null}
+    </View>
+
+    {row.cells.map((cell, index) => {
+      const isWinner = row.winner === index;
+      return (
+        <View
+          key={index}
+          style={[styles.specValue, { flex: colFlex }, isWinner && styles.specValueWinner]}
+        >
+          {cell ? (
+            <>
+              <Txt
+                variant="micro"
+                numberOfLines={4}
+                center
+                style={{
+                  fontFamily: isWinner ? theme.fonts.bold : theme.fonts.medium,
+                  fontSize: 11,
+                }}
+              >
+                {cell.value}
+              </Txt>
+              <View style={styles.cellMeta}>
+                <ConfidenceBars level={toConfidenceKey(cell.source)} />
+                {isWinner ? <Icon name="spark" size={8} color={theme.colors.success} /> : null}
+              </View>
+            </>
+          ) : (
+            <Txt variant="micro" tone="faint" center style={{ fontSize: 10 }}>
+              não informado
+            </Txt>
+          )}
+        </View>
+      );
+    })}
+  </View>
+);
+
+const ExclusiveCategory: React.FC<{
+  category: CompareCategory;
+  results: SearchResultResponse[];
+}> = ({ category, results }) => {
+  const identity = categoryIdentity(category.name);
+  const owners = category.presentIn.map((index) => vehicleLabel(results[index])).join(', ');
+
+  return (
+    <View style={styles.specSection}>
+      <View style={styles.specHead}>
+        <View style={[styles.specHeadIcon, { backgroundColor: withAlpha(identity.color, 0.12) }]}>
+          <Icon name={identity.icon} size={12} color={identity.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Txt variant="captionStrong">{category.name}</Txt>
+          <Txt variant="micro" tone="faint" style={{ fontSize: 10 }}>
+            Só em {owners}
+          </Txt>
+        </View>
+      </View>
+
+      <Card padding={0} style={{ overflow: 'hidden' }}>
+        {category.rows.map((row, index) => {
+          const cell = row.cells.find(Boolean);
+          return (
+            <View
+              key={row.key}
+              style={[
+                styles.specRow,
+                index % 2 === 1 && { backgroundColor: theme.ink[25] },
+                index === category.rows.length - 1 && { borderBottomWidth: 0 },
+              ]}
+            >
+              <Txt variant="micro" tone="muted" numberOfLines={3} style={styles.labelCol}>
+                {row.label}
+              </Txt>
+              <View style={[styles.specValue, { flex: 1.6 }]}>
+                <Txt variant="micro" numberOfLines={3} center style={{ fontSize: 11 }}>
+                  {cell?.value ?? '—'}
+                </Txt>
+                {cell ? (
+                  <View style={styles.cellMeta}>
+                    <ConfidenceBars level={toConfidenceKey(cell.source)} />
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          );
+        })}
+      </Card>
+    </View>
+  );
+};
 
 const FilterChip: React.FC<{
   label: string;
@@ -364,9 +710,7 @@ const FilterChip: React.FC<{
           : { borderColor: withAlpha(color, 0.28), backgroundColor: withAlpha(color, 0.06) },
       ]}
     >
-      {identity ? (
-        <Icon name={identity.icon} size={10} color={active ? '#FFFFFF' : color} />
-      ) : null}
+      {identity ? <Icon name={identity.icon} size={10} color={active ? '#FFFFFF' : color} /> : null}
       <Txt
         variant="micro"
         color={active ? '#FFFFFF' : color}
@@ -379,51 +723,28 @@ const FilterChip: React.FC<{
   );
 };
 
-const VehicleCard: React.FC<{ vehicle: CompareVehicle }> = ({ vehicle }) => (
-  <Card padding={0} variant="elevated" style={styles.vehicleCard}>
-    <View style={[styles.vehicleAccent, { backgroundColor: vehicle.brandColor }]} />
-    <View style={styles.vehicleImageWrap}>
-      <Image source={{ uri: vehicle.imageUrl }} style={styles.vehicleImage} resizeMode="cover" />
-      <View style={[styles.vehicleBrand, { backgroundColor: vehicle.brandColor }]}>
-        <Txt variant="micro" tone="inverse" style={{ fontFamily: theme.fonts.bold, fontSize: 9 }}>
-          {vehicle.brand.toUpperCase()}
-        </Txt>
-      </View>
-    </View>
-
-    <View style={styles.vehicleInfo}>
-      <Txt variant="captionStrong" numberOfLines={1}>
-        {vehicle.model}
-      </Txt>
-      <Txt variant="micro" tone="faint" numberOfLines={1}>
-        {vehicle.version}
-      </Txt>
-      <View style={styles.vehicleMeta}>
-        <View style={styles.scorePill}>
-          <Icon name="confidence" size={8} color={theme.brand[700]} />
-          <Txt
-            variant="micro"
-            tone="brand"
-            style={{ fontFamily: theme.fonts.bold, fontSize: 9 }}
-          >
-            {vehicle.aiScore}%
-          </Txt>
-        </View>
-        <Txt variant="micro" tone="faint" style={{ fontSize: 9 }}>
-          {vehicle.totalFields} campos
-        </Txt>
-      </View>
-      <Txt variant="captionStrong" tone="brand" numberOfLines={1} style={{ marginTop: 4 }}>
-        {vehicle.priceFrom}
-      </Txt>
-    </View>
-  </Card>
-);
-
 const styles = StyleSheet.create({
   section: {
     paddingHorizontal: theme.space[4],
     marginBottom: theme.space[5],
+  },
+  sectionTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[2],
+    marginBottom: theme.space[3],
+  },
+  scopeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.radii.full,
+    borderWidth: 1,
+    borderColor: theme.brand[100],
+    backgroundColor: theme.brand[50],
+    maxWidth: 160,
   },
   toggle: {
     flexDirection: 'row',
@@ -482,22 +803,6 @@ const styles = StyleSheet.create({
   vehicleAccent: {
     height: 3,
   },
-  vehicleImageWrap: {
-    height: 84,
-    backgroundColor: theme.ink[50],
-  },
-  vehicleImage: {
-    width: '100%',
-    height: '100%',
-  },
-  vehicleBrand: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: theme.radii.xs,
-  },
   vehicleInfo: {
     padding: theme.space[3],
     gap: 1,
@@ -505,38 +810,19 @@ const styles = StyleSheet.create({
   vehicleMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
-    marginTop: 6,
+    marginTop: 8,
   },
-  scorePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
+  exclusivePill: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: theme.radii.full,
-    backgroundColor: theme.brand[50],
   },
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.space[3],
-    marginBottom: theme.space[3],
-  },
-  scoreLabel: {
-    width: 88,
-  },
-  scoreBarRow: {
+  statRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.space[2],
-  },
-  scoreTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.ink[100],
-    overflow: 'hidden',
   },
   filterWrap: {
     backgroundColor: theme.colors.canvas,
@@ -547,8 +833,28 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: theme.space[4],
     paddingTop: theme.space[1],
-    paddingBottom: theme.space[3],
+    paddingBottom: theme.space[2],
     alignItems: 'center',
+  },
+  filterActions: {
+    flexDirection: 'row',
+    paddingHorizontal: theme.space[4],
+    paddingBottom: theme.space[3],
+  },
+  softToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.radii.full,
+    borderWidth: 1,
+    borderColor: theme.colors.borderSubtle,
+    backgroundColor: theme.colors.card,
+  },
+  softToggleActive: {
+    backgroundColor: theme.brand[700],
+    borderColor: theme.brand[700],
   },
   filterChip: {
     flexDirection: 'row',
@@ -560,12 +866,6 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: theme.radii.full,
     borderWidth: 1,
-    borderColor: theme.colors.borderSubtle,
-    backgroundColor: theme.colors.card,
-  },
-  filterChipActive: {
-    backgroundColor: theme.brand[700],
-    borderColor: theme.brand[700],
   },
   stickyHeader: {
     flexDirection: 'row',
@@ -601,19 +901,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.borderSubtle,
   },
-  specLabelCol: {
-    flex: 1.2,
+  labelCol: {
+    width: 96,
     paddingRight: theme.space[2],
   },
   specValue: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    paddingVertical: 4,
     paddingHorizontal: 4,
-    borderRadius: theme.radii.xs,
+    gap: 3,
   },
   specValueWinner: {
-    backgroundColor: theme.colors.successBg,
+    backgroundColor: withAlpha(theme.colors.success, 0.08),
+    borderRadius: theme.radii.xs,
+    paddingVertical: 4,
+  },
+  cellMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 });

@@ -3,7 +3,9 @@
 // TELA 04 — CATEGORIAS DE PESQUISA (passo 2 de 4)
 //
 // Grid de 2 colunas com as 14 categorias mapeadas às chaves do back-end.
-// Params via navigation: brand, model, trim, year, sessionId, sessionName.
+// Params via navigation: brand, model, trim, year, sessionId, sessionName e,
+// opcionalmente, lockedCategories — as categorias do veículo que originou uma
+// comparação, que chegam já marcadas para as duas fichas nascerem comparáveis.
 //
 // O resumo do que foi escolhido (quantas categorias, quantos campos estimados)
 // desceu para a barra de ação fixa: é a informação que decide o toque, então
@@ -13,9 +15,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme, withAlpha } from '../../styles/theme';
-import { SEARCH_CATEGORIES, type SearchCategory } from '../../mocks/vehicleData';
+import { SEARCH_CATEGORIES, type SearchCategory } from '../../constants/searchCatalog';
+import { matchKey } from '../../utils/compare';
 import {
   Button,
+  Callout,
   Icon,
   PressableScale,
   ProgressBar,
@@ -34,6 +38,12 @@ interface RouteParams {
   /** Sessão à qual a pesquisa será vinculada (POST /v1/searches#sessionId). */
   sessionId: string;
   sessionName?: string;
+  /**
+   * Categorias do veículo que originou a comparação. Chegam já marcadas para
+   * que as duas pesquisas cubram o mesmo terreno — a interseção da tela de
+   * comparação só é generosa se alguém se preocupar com ela aqui.
+   */
+  lockedCategories?: string[];
 }
 
 interface Props {
@@ -44,7 +54,19 @@ interface Props {
 export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
   const params = route?.params;
   const insets = useSafeAreaInsets();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Vindo de "Comparar com outro veículo", a grade abre com as categorias do
+  // primeiro veículo já marcadas. O casamento é pela chave normalizada porque
+  // o que volta da API é o nome da categoria, não o id do catálogo.
+  const inherited = useMemo(() => {
+    const locked = params?.lockedCategories ?? [];
+    if (locked.length === 0) return null;
+    const keys = new Set(locked.map(matchKey));
+    const ids = SEARCH_CATEGORIES.filter((c) => keys.has(matchKey(c.backendKey))).map((c) => c.id);
+    return ids.length > 0 ? new Set(ids) : null;
+  }, [params?.lockedCategories]);
+
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(inherited ?? []));
 
   // Entrada escalonada dos cards — dá a sensação de que a grade "se monta".
   const cardAnims = useRef(SEARCH_CATEGORIES.map(() => new Animated.Value(0))).current;
@@ -76,6 +98,12 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
         : new Set(SEARCH_CATEGORIES.map((c) => c.id)),
     );
   }, []);
+
+  /** A seleção ainda cobre tudo que foi herdado? Só avisa; não impede. */
+  const matchesInherited = useMemo(
+    () => !inherited || [...inherited].every((id) => selected.has(id)),
+    [inherited, selected],
+  );
 
   const estimatedTotal = useMemo(
     () =>
@@ -129,6 +157,19 @@ export const CategoriesScreen: React.FC<Props> = ({ navigation, route }) => {
       </ScreenHeader>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {inherited ? (
+          <Callout
+            tone={matchesInherited ? 'tip' : 'warning'}
+            title={matchesInherited ? 'Categorias herdadas' : 'Você saiu do conjunto herdado'}
+            icon="compare"
+            style={{ marginBottom: theme.space[4] }}
+          >
+            {matchesInherited
+              ? 'Estas são as mesmas categorias do veículo que você quer comparar. Mantendo a seleção, as duas fichas ficam inteiramente comparáveis.'
+              : 'A comparação só coloca lado a lado as categorias que os dois veículos têm. O que você desmarcou aqui vai ficar de fora do comparativo.'}
+          </Callout>
+        ) : null}
+
         <View style={styles.topRow}>
           <Txt variant="caption" tone="muted" style={{ flex: 1 }}>
             Escolha as categorias que a IA deve analisar.

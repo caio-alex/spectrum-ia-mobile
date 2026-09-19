@@ -22,7 +22,7 @@ import { Animated, Easing, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { liftForDark, theme, withAlpha } from '../../styles/theme';
-import { SEARCH_SOURCES, type SearchSource } from '../../mocks/vehicleData';
+import { SEARCH_SOURCES, type SearchSource } from '../../constants/searchCatalog';
 import { useCreateSearch } from '../../hooks/useSearches';
 import { streamSearchProgress, type ProgressStreamHandle } from '../../services/sse';
 import type { SearchProgressEvent } from '../../types/api';

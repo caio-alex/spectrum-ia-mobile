@@ -30,7 +30,7 @@ import { useSearchCards } from '../../hooks/useSearchCards';
 import { extractApiErrorMessage } from '../../services/errorHandler';
 import { getSessionExportUrl } from '../../services/sessions';
 import { formatDate } from '../../utils/date';
-import type { RecentSearch } from '../../mocks/homeData';
+import type { RecentSearch } from '../../types/ui';
 import type { ExportFormat } from '../../types/api';
 
 const PAGE_SIZE = 50;
@@ -194,7 +194,11 @@ export const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <SectionHeader
           title="Veículos analisados"
           actionLabel={cards.length > 1 ? 'Comparar' : undefined}
-          onAction={cards.length > 1 ? () => navigation?.navigate('Compare') : undefined}
+          onAction={
+            cards.length > 1
+              ? () => navigation?.navigate('Compare', { sessionId, sessionName })
+              : undefined
+          }
         />
 
         {searchesQuery.isLoading ? (

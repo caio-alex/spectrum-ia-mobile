@@ -46,7 +46,7 @@ import { useRecentSearches } from '../../hooks/useSearches';
 import { useSessions } from '../../hooks/useSessions';
 import { useSearchCards } from '../../hooks/useSearchCards';
 import { formatDate } from '../../utils/date';
-import type { RecentSearch } from '../../mocks/homeData';
+import type { RecentSearch } from '../../types/ui';
 import type { SessionResponse } from '../../services/sessions';
 
 const initialsFromName = (name: string): string => {

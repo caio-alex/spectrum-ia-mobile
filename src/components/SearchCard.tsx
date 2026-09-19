@@ -11,7 +11,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { theme } from '../styles/theme';
 import { Badge, Card, Icon, Txt } from './ui';
-import type { RecentSearch } from '../mocks/homeData';
+import type { RecentSearch } from '../types/ui';
 
 interface Props {
   item: RecentSearch;

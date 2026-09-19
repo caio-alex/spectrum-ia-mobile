@@ -1,15 +1,18 @@
-// src/mocks/vehicleData.ts
+// src/constants/searchCatalog.ts
 //
-// Os mocks de marcas / modelos / versões / MOCK_VEHICLE_RESPONSES /
-// MOCK_RESULT_SOURCES foram removidos após a integração com a API real
-// (GET /v1/vehicles/{brands,models,trims}, GET /v1/searches/{id}/result —
-// que já entrega o campo `sources` real dentro do JSON de specs).
+// Catálogos fixos do fluxo de pesquisa. Não são mocks: são dados de verdade que
+// simplesmente não têm endpoint no backend, e por isso vivem no cliente.
+// (Este arquivo era `src/mocks/vehicleData.ts`; o nome antigo dava a entender
+// que o app ainda rodava com dado inventado, o que deixou de ser verdade quando
+// marcas/modelos/versões passaram a vir de GET /v1/vehicles/*.)
 //
-// Continuam aqui os catálogos fixos que ainda não têm endpoint no backend:
-//   - SEARCH_CATEGORIES: 14 categorias de pesquisa exibidas na CategoriesScreen.
-//     `backendKey` precisa bater 1:1 com o que o backend aceita em SearchRequest.categories.
-//   - SEARCH_SOURCES: catálogo visual ainda usado pela ProcessingScreen.
-//   - CATEGORY_ICONS: mapeamento de emoji por categoria.
+//   - SEARCH_CATEGORIES: as 14 categorias exibidas na CategoriesScreen.
+//     ATENÇÃO: `backendKey` precisa bater 1:1 com o que a API aceita em
+//     SearchRequest.categories — é essa string que volta como chave de
+//     `specs` no resultado e é ela que a tela de comparação cruza entre
+//     veículos (ver src/utils/compare.ts).
+//   - SEARCH_SOURCES: catálogo visual das fontes exibidas na ProcessingScreen
+//     enquanto os eventos SSE chegam.
 
 export interface SearchCategory {
   id: string;
@@ -44,13 +47,6 @@ export const SEARCH_CATEGORIES: SearchCategory[] = [
   { id: 'cat_13', name: 'Tração 4x4 e Off-Road', backendKey: 'Tração 4x4 e Off-Road', emoji: '⛰️', subtitle: 'Bloqueio de diferencial', estimatedFields: 15 },
   { id: 'cat_14', name: 'Outros', backendKey: 'Outros', emoji: '📦', subtitle: 'Garantia e tomadas', estimatedFields: 45 },
 ];
-
-export const CATEGORY_ICONS: Record<string, string> = {
-  'motor e transmissao': '⚙️', 'rodas': '🛞', 'conectividade': '📶', 'entretenimento e multimidia': '📺',
-  'ar-condicionado': '❄️', 'seguranca': '🛡️', 'tecnologia avancada': '🚀', 'travamento e vidros': '🔒',
-  'acabamento interno': '🧵', 'teto solar': '☀️', 'bancos': '💺', 'iluminacao': '💡',
-  'tracao 4x4 e off-road': '⛰️', 'outros': '📦',
-};
 
 export const SEARCH_SOURCES: SearchSource[] = [
   { id: 'official', name: 'Site oficial da montadora', icon: '🏭', maxFields: 12, type: 'official' },

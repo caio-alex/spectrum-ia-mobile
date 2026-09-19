@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { getSearchResult } from '../services/searches';
 import { relativeTime } from '../utils/date';
-import type { RecentSearch } from '../mocks/homeData';
+import type { RecentSearch } from '../types/ui';
 import type { SearchSummary } from '../types/api';
 
 /**

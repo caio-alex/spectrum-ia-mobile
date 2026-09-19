@@ -57,6 +57,13 @@ interface PickerOption {
 interface RouteParams {
   sessionId?: string;
   sessionName?: string;
+  /**
+   * Categorias herdadas de um resultado anterior ("Comparar com outro veículo").
+   * Só trafegam até a CategoriesScreen, que as pré-marca — é o que faz o dado
+   * já nascer comparável em vez de descobrirmos a divergência na tela de
+   * comparação, depois de a pesquisa ter sido paga.
+   */
+  lockedCategories?: string[];
 }
 
 export const SearchScreen = ({ navigation, route }: any) => {
@@ -183,8 +190,9 @@ export const SearchScreen = ({ navigation, route }: any) => {
       year: vehicle.year,
       sessionId,
       sessionName,
+      lockedCategories: params?.lockedCategories,
     });
-  }, [canContinue, vehicle, sessionId, sessionName, navigation]);
+  }, [canContinue, vehicle, sessionId, sessionName, params, navigation]);
 
   const sortedYears = useMemo(() => {
     if (!selectedModel) return [];

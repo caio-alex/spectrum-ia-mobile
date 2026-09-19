@@ -1,6 +1,20 @@
 // src/screens/auth/RegisterScreen.tsx
+//
+// SOBRE O ACEITE DA LGPD
+//
+// A caixa nasce DESMARCADA e o cadastro fica bloqueado até ser marcada. A Lei
+// 13.709/2018 (Art. 8º) exige manifestação livre, informada e inequívoca —
+// caixa pré-marcada, ou aceite implícito no clique do botão, não é consentimento.
+//
+// LIMITAÇÃO CONHECIDA: o aceite não é enviado ao servidor. O contrato de
+// `POST /auth/register` é fixo (companyName, fullName, email, password) e não
+// tem campo para isso, então hoje o consentimento só existe enquanto esta tela
+// está montada. Como o Art. 8º §2º põe no controlador o ônus de PROVAR que o
+// consentimento foi dado, a trava aqui cumpre o dever de informar, mas não
+// produz prova. Fechar isso depende de o backend registrar o aceite (data,
+// versão do documento e identificação do titular) no cadastro.
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { useAuth } from '../../contexts';
 import { extractApiErrorMessage } from '../../services/errorHandler';
 import {
@@ -14,6 +28,7 @@ import {
 import { theme } from '../../styles/theme';
 import {
   Button,
+  Checkbox,
   FormError,
   Icon,
   PressableScale,
@@ -21,6 +36,7 @@ import {
   TextField,
   Txt,
 } from '../../components/ui';
+import { PRIVACY_POLICY_URL, TERMS_OF_USE_URL } from '../../constants/legal';
 import { AuthLayout } from './AuthLayout';
 
 export const RegisterScreen = ({ navigation }: any) => {
@@ -32,6 +48,9 @@ export const RegisterScreen = ({ navigation }: any) => {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sempre falso na montagem — ver a nota sobre LGPD no topo do arquivo.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   const passwordContext = useMemo(
     () => ({ email, fullName, companyName }),
@@ -64,6 +83,13 @@ export const RegisterScreen = ({ navigation }: any) => {
     });
     if (pwErr) return setError(pwErr);
 
+    if (!acceptedTerms) {
+      setConsentError('É preciso aceitar para criar a conta.');
+      setError(null);
+      return;
+    }
+
+    setConsentError(null);
     setError(null);
     setIsSubmitting(true);
     try {
@@ -88,6 +114,11 @@ export const RegisterScreen = ({ navigation }: any) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleConsentChange = (next: boolean) => {
+    setAcceptedTerms(next);
+    if (next) setConsentError(null);
   };
 
   const showChecklist = passwordFocused || (password.length > 0 && !checks.allPassed);
@@ -145,6 +176,22 @@ export const RegisterScreen = ({ navigation }: any) => {
 
       {showChecklist ? <PasswordStrength checks={checks} /> : null}
 
+      <Checkbox
+        checked={acceptedTerms}
+        onChange={handleConsentChange}
+        disabled={isSubmitting}
+        error={consentError}
+        accessibilityLabel="Aceitar a política de privacidade e os termos de uso"
+        style={{ marginBottom: theme.space[4] }}
+      >
+        <Txt variant="caption" tone="muted">
+          Li e concordo com a <LegalLink label="Política de Privacidade" url={PRIVACY_POLICY_URL} />
+          {' e os '}
+          <LegalLink label="Termos de Uso" url={TERMS_OF_USE_URL} />, e autorizo o tratamento dos
+          meus dados pessoais conforme a Lei nº 13.709/2018 (LGPD).
+        </Txt>
+      </Checkbox>
+
       <FormError message={error} />
 
       <Button
@@ -172,6 +219,27 @@ export const RegisterScreen = ({ navigation }: any) => {
         </Txt>
       </PressableScale>
     </AuthLayout>
+  );
+};
+
+/* ── Link de documento legal ─────────────────────────────────────────────── */
+
+/**
+ * Vira link só quando existe endereço. Sem URL o nome do documento continua
+ * visível e em destaque, mas não finge ser clicável — ver src/constants/legal.ts.
+ */
+const LegalLink: React.FC<{ label: string; url: string }> = ({ label, url }) => {
+  if (!url) {
+    return (
+      <Txt variant="captionStrong" tone="default">
+        {label}
+      </Txt>
+    );
+  }
+  return (
+    <Txt variant="captionStrong" tone="accent" onPress={() => void Linking.openURL(url)}>
+      {label}
+    </Txt>
   );
 };
 

@@ -284,8 +284,23 @@ export const ResultScreen = ({ navigation, route }: any) => {
           icon="compare"
           variant="accent"
           size="lg"
-          onPress={() => navigation.navigate('Compare', { vehicleData: vehicle })}
+          onPress={() => navigation.navigate('Compare', { searchIds: [searchId] })}
           style={{ marginTop: theme.space[6] }}
+        />
+        {/* Leva as categorias DESTA pesquisa para a próxima. É o que garante
+            que os dois veículos cubram o mesmo terreno — a alternativa é
+            descobrir a divergência só na tela de comparação, quando as duas
+            pesquisas já foram feitas. */}
+        <Button
+          label="Pesquisar outro veículo para comparar"
+          icon="add"
+          variant="ghost"
+          onPress={() =>
+            navigation.navigate('Search', {
+              lockedCategories: categories.map((category) => category.name),
+            })
+          }
+          style={{ marginTop: theme.space[2] }}
         />
         <Button
           label="Voltar ao início"

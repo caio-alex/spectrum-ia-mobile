@@ -17,6 +17,7 @@ export { PressableScale } from './Pressable';
 export { Button, IconButton, type ButtonVariant, type ButtonSize } from './Button';
 export { Card, SectionHeader, StatTile, StatRow, Divider, formatMetric } from './Surfaces';
 export { Callout, type CalloutTone } from './Callout';
+export { Checkbox } from './Checkbox';
 export { Badge, ConfidenceBadge, ConfidenceBars, toConfidenceKey, type BadgeTone } from './Badge';
 export {
   Skeleton,
